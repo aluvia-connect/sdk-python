@@ -1,0 +1,2 @@
+# Add to .gitignore to prevent committing credentials
+integration_test/.env
