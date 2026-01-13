@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import sys
 import threading
-from typing import Any
+from typing import Any, Optional
 
 from proxy.proxy import Proxy
-from proxy.http.proxy import HttpProxyBasePlugin
+from proxy.plugin import ProxyPoolPlugin
 from proxy.http.parser import HttpParser
+from proxy.common.utils import bytes_
+from proxy.http import httpHeaders
 
 from aluvia_sdk.client.config_manager import ConfigManager
 from aluvia_sdk.client.logger import Logger
@@ -23,78 +26,89 @@ _config_manager: ConfigManager | None = None
 _logger: Logger | None = None
 
 
-class AluviaProxyPlugin(HttpProxyBasePlugin):
+class AluviaProxyPlugin(ProxyPoolPlugin):
     """
     Plugin for proxy.py that implements Aluvia routing logic.
-    Decides whether to route through Aluvia gateway or go direct.
+    
+    Extends ProxyPoolPlugin to get proper upstream proxy handling.
+    Decides whether to route through Aluvia gateway or go direct based on hostname rules.
     """
 
-    def before_upstream_connection(self, request: HttpParser):
+    def before_upstream_connection(self, request: HttpParser) -> Optional[HttpParser]:
         """
         Called by proxy.py before establishing upstream connection.
-        Return upstream proxy URL to route through it, or None to go direct.
+        
+        Returns:
+            - request: Go direct (bypass upstream proxy)
+            - None: Route through upstream proxy (calls parent which uses --proxy-pool)
         """
         global _config_manager, _logger
 
         try:
             # Extract hostname from request
-            hostname = None
-
-            # Check if this is a CONNECT request (for HTTPS tunneling)
-            is_connect = request.method and request.method == b"CONNECT"
-
-            if is_connect and request.path:
-                # CONNECT request - path is "hostname:port" (e.g., "ipconfig.io:443")
-                path_str = (
-                    request.path.decode() if isinstance(request.path, bytes) else request.path
-                )
-                if path_str:
-                    # Strip port number if present
-                    hostname = path_str.split(":")[0]
-                    if _logger:
-                        _logger.debug(f"CONNECT request for {hostname}")
-            elif request.host:
-                # Regular HTTP request - use Host header
-                hostname = (
-                    request.host.decode() if isinstance(request.host, bytes) else request.host
-                )
-                if _logger:
-                    _logger.debug(f"HTTP request for {hostname}")
-
+            hostname = self._extract_hostname(request)
+            
             if not hostname:
                 if _logger:
                     _logger.debug("Could not extract hostname, going direct")
-                return None
+                return request  # Direct connection
 
             # Get current config
             if not _config_manager:
-                return None
+                if _logger:
+                    _logger.debug("No config manager, going direct")
+                return request
 
             config = _config_manager.get_config()
             if not config:
                 if _logger:
                     _logger.debug("No config available, going direct")
-                return None
+                return request
 
             # Check if we should proxy this hostname
-            # NOTE: With --proxy-pool configured, ALL traffic goes through Aluvia
             use_proxy = should_proxy(hostname, config.rules)
 
-            if _logger:
-                if use_proxy:
-                    _logger.debug(f"Hostname {hostname} - routing through Aluvia")
-                else:
-                    _logger.debug(
-                        f"Hostname {hostname} - would bypass (but all traffic uses --proxy-pool)"
-                    )
+            if not use_proxy:
+                if _logger:
+                    _logger.debug(f"Hostname {hostname} - bypassing (direct connection)")
+                return request  # Direct connection
 
-            # Return request - proxy.py will route through configured --proxy-pool
-            return request
+            # Route through Aluvia gateway - let parent class handle it
+            if _logger:
+                _logger.debug(f"Hostname {hostname} - routing through Aluvia (via parent)")
+
+            # Call parent class which will use --proxy-pool to connect to Aluvia
+            return super().before_upstream_connection(request)
 
         except Exception as e:
             if _logger:
                 _logger.error(f"Error in routing decision: {e}")
-            return None
+            # On error, go direct
+            return request
+
+    def _extract_hostname(self, request: HttpParser) -> str | None:
+        """Extract hostname from HTTP request or CONNECT tunnel."""
+        # Check if this is a CONNECT request (for HTTPS tunneling)
+        is_connect = request.method and request.method == b"CONNECT"
+
+        if is_connect and request.path:
+            # CONNECT request - path is "hostname:port" (e.g., "ipconfig.io:443")
+            path_str = (
+                request.path.decode() if isinstance(request.path, bytes) else request.path
+            )
+            if path_str:
+                # Strip port number if present
+                hostname = path_str.split(":")[0]
+                return hostname if hostname else None
+
+        elif request.host:
+            # Regular HTTP request - use Host header
+            hostname = (
+                request.host.decode() if isinstance(request.host, bytes) else request.host
+            )
+            return hostname if hostname else None
+
+        return None
 
 
 class ProxyServer:
@@ -138,6 +152,21 @@ class ProxyServer:
             # Register plugin
             module_name = f"{__name__}.AluviaProxyPlugin"
 
+            # Get Aluvia gateway config for --proxy-pool
+            config = self.config_manager.get_config()
+            if not config:
+                raise ProxyStartError("No configuration available - cannot start proxy without Aluvia gateway credentials")
+            
+            # Build Aluvia gateway URL for --proxy-pool
+            protocol = config.raw_proxy.protocol
+            host = config.raw_proxy.host
+            port_num = config.raw_proxy.port
+            username = config.raw_proxy.username
+            password = config.raw_proxy.password
+            
+            # Format: http://username:password@host:port
+            aluvia_proxy_url = f"{protocol}://{username}:{password}@{host}:{port_num}"
+
             # Build proxy arguments
             args = [
                 "--hostname",
@@ -146,20 +175,13 @@ class ProxyServer:
                 str(listen_port),
                 "--plugins",
                 module_name,
+                "--proxy-pool",
+                aluvia_proxy_url,  # This is what ProxyPoolPlugin will use
             ]
 
-            # Configure Aluvia gateway as upstream proxy for ALL requests
-            # TODO: Selective routing per-request isn't easily supported by proxy.py
-            config = self.config_manager.get_config()
-            if config:
-                protocol = config.raw_proxy.protocol
-                host = config.raw_proxy.host
-                port = config.raw_proxy.port
-                username = config.raw_proxy.username
-                password = config.raw_proxy.password
-                upstream = f"{protocol}://{username}:{password}@{host}:{port}"
-                args.extend(["--proxy-pool", upstream])
-                self.logger.info(f"Upstream proxy: {protocol}://{username}:***@{host}:{port}")
+            # Log configuration status
+            self.logger.info(f"Aluvia gateway: {protocol}://{username}:***@{host}:{port_num}")
+            self.logger.info("Proxy routing: Rules-based (per-request hostname matching)")
 
             self._proxy = Proxy(input_args=args)
 

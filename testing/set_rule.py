@@ -12,7 +12,7 @@ async def main():
         response = await client.patch(
             "https://api.aluvia.io/v1/account/connections/1850",
             headers={"Authorization": f"Bearer {api_key}"},
-            json={"rules": {"type": "hostname", "items": ["ipconfig.io"]}},
+            json={"rules": ["ipconfig.io"]},
         )
         result = response.json()
         print(f"Response: {result}")
