@@ -255,7 +255,7 @@ async def test_session_management():
 
         # Test 5.3: Update session ID again
         print("\n5.3 Updating session ID again...")
-        another_session_id = f"test_session_2_{timestamp}"
+        another_session_id = f"testsession2{timestamp}"
         await client.update_session_id(another_session_id)
         print(f"   ✓ Session ID updated: {another_session_id}")
 
@@ -340,7 +340,7 @@ async def test_context_manager():
             print(f"   ✓ Client started via context manager")
 
             # Do some operations
-            await client.update_session_id("context_manager_test")
+            await client.update_session_id("contextmanagertest")
             print(f"   ✓ Operations performed")
 
             await asyncio.sleep(1)
