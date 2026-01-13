@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Callable
 
 from aluvia_sdk.api.request import request_core
 from aluvia_sdk.client.logger import Logger
@@ -67,7 +67,7 @@ class ConfigManager:
         log_level: LogLevel,
         connection_id: int | str | None = None,
         strict: bool = True,
-        shared_config_callback: callable = None,
+        shared_config_callback: Callable[[str, Any], None] | None = None,
     ) -> None:
         self.api_key = api_key
         self.api_base_url = api_base_url
@@ -213,13 +213,17 @@ class ConfigManager:
         self._polling_task = asyncio.create_task(self._poll_loop())
         self.logger.debug("ConfigManager: Started polling")
 
-    def stop_polling(self) -> None:
+    async def stop_polling(self) -> None:
         """Stop polling for configuration updates."""
         if self._polling_task is None:
             return
 
         self._stop_polling = True
         self._polling_task.cancel()
+        try:
+            await self._polling_task
+        except asyncio.CancelledError:
+            pass
         self._polling_task = None
         self.logger.debug("ConfigManager: Stopped polling")
 

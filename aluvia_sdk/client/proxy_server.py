@@ -119,11 +119,12 @@ class ProxyServer:
         self._proxy_thread: threading.Thread | None = None
         self._bind_host = "127.0.0.1"
         self._actual_port: int = 0
+        self._shutdown_event = threading.Event()
 
         # Set callback to update shared config when ConfigManager updates
         self.config_manager._shared_config_callback = self._update_shared_config
 
-    def _update_shared_config(self, key: str, value: any) -> None:
+    def _update_shared_config(self, key: str, value: Any) -> None:
         """Callback to update shared config dict when ConfigManager updates."""
         global _shared_config
         _shared_config[key] = value
@@ -225,11 +226,9 @@ class ProxyServer:
             # Run the proxy's main loop
             # proxy.py's Proxy class doesn't have a run() method
             # The acceptor loop runs automatically after setup()
-            # We just need to keep the thread alive
-            import time
-
-            while self._proxy:
-                time.sleep(1)
+            # We keep the thread alive until shutdown is signaled
+            while not self._shutdown_event.is_set():
+                self._shutdown_event.wait(timeout=1.0)
         except Exception as e:
             self.logger.error(f"Proxy thread error: {e}")
 
@@ -254,9 +253,17 @@ class ProxyServer:
         """Stop the local proxy server."""
         if self._proxy:
             try:
+                # Signal the thread to stop
+                self._shutdown_event.set()
+
+                # Give thread time to exit gracefully
+                if self._proxy_thread and self._proxy_thread.is_alive():
+                    self._proxy_thread.join(timeout=2.0)
+
                 self._proxy.shutdown()
             except Exception as e:
                 self.logger.debug(f"Error during proxy shutdown: {e}")
             self._proxy = None
             self._proxy_thread = None
+            self._shutdown_event.clear()
             self.logger.info("Proxy server stopped")

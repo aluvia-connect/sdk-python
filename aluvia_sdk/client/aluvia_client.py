@@ -53,17 +53,9 @@ class ConnectionObject:
         """Get Playwright proxy settings."""
         return self._as_playwright_fn()
 
-    def asPlaywright(self) -> PlaywrightProxySettings:
-        """Alias for as_playwright() (camelCase for compatibility)."""
-        return self.as_playwright()
-
     def as_selenium(self) -> str:
         """Get Selenium proxy argument."""
         return self._as_selenium_fn()
-
-    def asSelenium(self) -> str:
-        """Alias for as_selenium() (camelCase for compatibility)."""
-        return self.as_selenium()
 
     def as_httpx_proxies(self) -> dict[str, str]:
         """Get httpx proxy configuration."""
@@ -245,7 +237,7 @@ class AluviaClient:
             return to_requests_proxies(get_proxy_url())
 
         async def close() -> None:
-            self.config_manager.stop_polling()
+            await self.config_manager.stop_polling()
             self._connection = None
             self._started = False
 
@@ -284,7 +276,7 @@ class AluviaClient:
 
         async def close() -> None:
             await self.proxy_server.stop()
-            self.config_manager.stop_polling()
+            await self.config_manager.stop_polling()
             self._connection = None
             self._started = False
 
@@ -308,7 +300,7 @@ class AluviaClient:
         if self.local_proxy:
             await self.proxy_server.stop()
 
-        self.config_manager.stop_polling()
+        await self.config_manager.stop_polling()
         self._connection = None
         self._started = False
 
