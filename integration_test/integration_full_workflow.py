@@ -170,17 +170,44 @@ async def test_complete_workflow():
 
     async with httpx.AsyncClient(proxy=proxy_url, timeout=30.0) as http_client:
         print(f"\n6.1 Making request to ipconfig.io (newly added rule)...")
-        try:
-            response = await http_client.get("http://ipconfig.io/json")
-            if response.status_code == 200:
-                data = response.json()
-                print(f"   ✓ Request successful")
-                print(f"   - IP: {data.get('ip', 'N/A')}")
-                print(f"   - Country: {data.get('country', 'N/A')}")
-            else:
-                print(f"   ⚠ Unexpected status: {response.status_code}")
-        except Exception as e:
-            print(f"   ⚠ Request failed: {e}")
+        print(f"   Retrying up to 5 times with incremental delays to verify US geo-targeting...")
+
+        us_found = False
+        for attempt in range(1, 6):
+            try:
+                # Incremental delay: 2s, 4s, 6s, 8s, 10s
+                if attempt > 1:
+                    delay = attempt * 2
+                    print(f"   Attempt {attempt}: Waiting {delay}s for configuration sync...")
+                    await asyncio.sleep(delay)
+                else:
+                    print(f"   Attempt {attempt}...")
+
+                response = await http_client.get("https://ipconfig.io/json")
+                if response.status_code == 200:
+                    data = response.json()
+                    country = data.get("country", "N/A")
+                    ip = data.get("ip", "N/A")
+
+                    print(f"   - IP: {ip}")
+                    print(f"   - Country: {country}")
+
+                    # Check if we got US
+                    if "United States" in country or country.startswith("US"):
+                        print(f"   ✓ Successfully got US IP after {attempt} attempt(s)")
+                        us_found = True
+                        break
+                    else:
+                        print(f"   ⚠ Got {country}, expecting US (will retry...)")
+                else:
+                    print(f"   ⚠ Unexpected status: {response.status_code}")
+            except Exception as e:
+                print(f"   ⚠ Request failed: {e}")
+
+        if not us_found:
+            print(
+                f"   ⚠ Did not get US IP after 5 attempts (geo-targeting may need more time or service routing)"
+            )
 
     # Phase 7: Stop client
     print("\n🛑 PHASE 7: Stop Client")
