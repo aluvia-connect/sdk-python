@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import multiprocessing
 import sys
 import threading
 from typing import Any, Optional
@@ -21,15 +22,16 @@ from aluvia_sdk.client.types import LogLevel
 from aluvia_sdk.errors import ProxyStartError
 
 
-# Global references for plugin
-_config_manager: ConfigManager | None = None
+# Shared configuration across processes
+_manager = multiprocessing.Manager()
+_shared_config = _manager.dict()
 _logger: Logger | None = None
 
 
 class AluviaProxyPlugin(ProxyPoolPlugin):
     """
     Plugin for proxy.py that implements Aluvia routing logic.
-    
+
     Extends ProxyPoolPlugin to get proper upstream proxy handling.
     Decides whether to route through Aluvia gateway or go direct based on hostname rules.
     """
@@ -37,36 +39,31 @@ class AluviaProxyPlugin(ProxyPoolPlugin):
     def before_upstream_connection(self, request: HttpParser) -> Optional[HttpParser]:
         """
         Called by proxy.py before establishing upstream connection.
-        
+
         Returns:
             - request: Go direct (bypass upstream proxy)
             - None: Route through upstream proxy (calls parent which uses --proxy-pool)
         """
-        global _config_manager, _logger
+        global _shared_config, _logger
 
         try:
             # Extract hostname from request
             hostname = self._extract_hostname(request)
-            
+
             if not hostname:
                 if _logger:
                     _logger.debug("Could not extract hostname, going direct")
                 return request  # Direct connection
 
-            # Get current config
-            if not _config_manager:
+            # Get current rules from shared config
+            rules = _shared_config.get("rules", [])
+            if not rules:
                 if _logger:
-                    _logger.debug("No config manager, going direct")
-                return request
-
-            config = _config_manager.get_config()
-            if not config:
-                if _logger:
-                    _logger.debug("No config available, going direct")
+                    _logger.debug("No rules available, going direct")
                 return request
 
             # Check if we should proxy this hostname
-            use_proxy = should_proxy(hostname, config.rules)
+            use_proxy = should_proxy(hostname, rules)
 
             if not use_proxy:
                 if _logger:
@@ -93,9 +90,7 @@ class AluviaProxyPlugin(ProxyPoolPlugin):
 
         if is_connect and request.path:
             # CONNECT request - path is "hostname:port" (e.g., "ipconfig.io:443")
-            path_str = (
-                request.path.decode() if isinstance(request.path, bytes) else request.path
-            )
+            path_str = request.path.decode() if isinstance(request.path, bytes) else request.path
             if path_str:
                 # Strip port number if present
                 hostname = path_str.split(":")[0]
@@ -103,9 +98,7 @@ class AluviaProxyPlugin(ProxyPoolPlugin):
 
         elif request.host:
             # Regular HTTP request - use Host header
-            hostname = (
-                request.host.decode() if isinstance(request.host, bytes) else request.host
-            )
+            hostname = request.host.decode() if isinstance(request.host, bytes) else request.host
             return hostname if hostname else None
 
         return None
@@ -127,6 +120,15 @@ class ProxyServer:
         self._bind_host = "127.0.0.1"
         self._actual_port: int = 0
 
+        # Set callback to update shared config when ConfigManager updates
+        self.config_manager._shared_config_callback = self._update_shared_config
+
+    def _update_shared_config(self, key: str, value: any) -> None:
+        """Callback to update shared config dict when ConfigManager updates."""
+        global _shared_config
+        _shared_config[key] = value
+        self.logger.debug(f"Updated shared config: {key} = {value}")
+
     async def start(self, port: int | None = None) -> dict[str, Any]:
         """
         Start the local proxy server.
@@ -140,30 +142,34 @@ class ProxyServer:
         Raises:
             ProxyStartError: If server fails to start
         """
-        global _config_manager, _logger
+        global _shared_config, _logger
 
         listen_port = port or 0
 
         try:
-            # Set global references for plugin
-            _config_manager = self.config_manager
+            # Set shared config for plugin (accessible across all processes)
             _logger = self.logger
+
+            # Get initial config and populate shared dict
+            config = self.config_manager.get_config()
+            if not config:
+                raise ProxyStartError(
+                    "No configuration available - cannot start proxy without Aluvia gateway credentials"
+                )
+
+            # Store rules in shared dict
+            _shared_config["rules"] = config.rules
 
             # Register plugin
             module_name = f"{__name__}.AluviaProxyPlugin"
 
-            # Get Aluvia gateway config for --proxy-pool
-            config = self.config_manager.get_config()
-            if not config:
-                raise ProxyStartError("No configuration available - cannot start proxy without Aluvia gateway credentials")
-            
             # Build Aluvia gateway URL for --proxy-pool
             protocol = config.raw_proxy.protocol
             host = config.raw_proxy.host
             port_num = config.raw_proxy.port
             username = config.raw_proxy.username
             password = config.raw_proxy.password
-            
+
             # Format: http://username:password@host:port
             aluvia_proxy_url = f"{protocol}://{username}:{password}@{host}:{port_num}"
 
@@ -177,6 +183,8 @@ class ProxyServer:
                 module_name,
                 "--proxy-pool",
                 aluvia_proxy_url,  # This is what ProxyPoolPlugin will use
+                "--num-workers",
+                "0",  # Single process mode - required for config sharing
             ]
 
             # Log configuration status

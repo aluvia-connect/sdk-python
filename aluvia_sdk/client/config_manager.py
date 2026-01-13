@@ -67,6 +67,7 @@ class ConfigManager:
         log_level: LogLevel,
         connection_id: int | str | None = None,
         strict: bool = True,
+        shared_config_callback: callable = None,
     ) -> None:
         self.api_key = api_key
         self.api_base_url = api_base_url
@@ -76,6 +77,7 @@ class ConfigManager:
         self.connection_id = connection_id
         self.strict = strict
         self.logger = Logger(log_level)
+        self._shared_config_callback = shared_config_callback
 
         self._config: ConnectionNetworkConfig | None = None
         self._polling_task: asyncio.Task[None] | None = None
@@ -193,6 +195,10 @@ class ConfigManager:
             target_geo=target_geo,
             etag=etag,
         )
+
+        # Update shared config if callback provided
+        if self._shared_config_callback:
+            self._shared_config_callback("rules", rules)
 
     def get_config(self) -> ConnectionNetworkConfig | None:
         """Get the current configuration."""
