@@ -50,7 +50,7 @@ async def test_complete_workflow():
         print(f"\n1.1 Creating new connection...")
         connection_config = await api.account.connections.create(
             description=f"Workflow test - {timestamp}",
-            rules=["*.httpbin.org", "*.example.com"],
+            rules=["ipconfig.io", "*.example.com"],
             session_id=f"workflowtest{timestamp}",
             target_geo="us_ca",
         )
@@ -89,15 +89,16 @@ async def test_complete_workflow():
 
     async with httpx.AsyncClient(proxy=proxy_url, timeout=30.0) as http_client:
 
-        # Test 3.2: Make request to httpbin (should go through proxy)
-        print(f"\n3.2 Making request to httpbin.org...")
+        # Test 3.2: Make request to ipconfig.io (should go through proxy)
+        print(f"\n3.2 Making request to ipconfig.io...")
         try:
-            response = await http_client.get("http://httpbin.org/ip")
+            response = await http_client.get("https://ipconfig.io/json")
             if response.status_code == 200:
                 data = response.json()
                 print(f"   ✓ Request successful")
                 print(f"   - Status: {response.status_code}")
-                print(f"   - IP: {data.get('origin', 'N/A')}")
+                print(f"   - IP: {data.get('ip', 'N/A')}")
+                print(f"   - Country: {data.get('country', 'N/A')}")
             else:
                 print(f"   ⚠ Unexpected status: {response.status_code}")
         except Exception as e:
@@ -121,7 +122,7 @@ async def test_complete_workflow():
     print("-" * 70)
 
     print(f"\n4.1 Updating routing rules...")
-    new_rules = ["*.httpbin.org", "*.ipconfig.io", "*.ifconfig.me"]
+    new_rules = ["ipconfig.io", "ifconfig.me", "*.example.com"]
     await client.update_rules(new_rules)
     print(f"   ✓ Rules updated: {new_rules}")
 
@@ -154,7 +155,7 @@ async def test_complete_workflow():
 
         # Verify updates
         config_rules = updated_config.get("rules", [])
-        if "*.ipconfig.io" in config_rules:
+        if "ipconfig.io" in config_rules:
             print(f"   ✓ Rules update verified")
         else:
             print(f"   ⚠ Rules may not have synced yet")
