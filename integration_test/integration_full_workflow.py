@@ -82,12 +82,12 @@ async def test_complete_workflow():
     print("\n🌐 PHASE 3: Make HTTP Requests Through Proxy")
     print("-" * 70)
 
-    # Get httpx proxy configuration
-    proxies = connection.as_httpx_proxies()
+    # Get proxy URL for httpx
+    proxy_url = connection.url
     print(f"\n3.1 Using httpx with proxy configuration...")
-    print(f"   - Proxies: {proxies}")
+    print(f"   - Proxy: {proxy_url}")
 
-    async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as http_client:
+    async with httpx.AsyncClient(proxy=proxy_url, timeout=30.0) as http_client:
 
         # Test 3.2: Make request to httpbin (should go through proxy)
         print(f"\n3.2 Making request to httpbin.org...")
@@ -166,9 +166,9 @@ async def test_complete_workflow():
     print("\n🔄 PHASE 6: Make Requests with Updated Configuration")
     print("-" * 70)
 
-    proxies = connection.as_httpx_proxies()
+    proxy_url = connection.url
 
-    async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as http_client:
+    async with httpx.AsyncClient(proxy=proxy_url, timeout=30.0) as http_client:
         print(f"\n6.1 Making request to ipconfig.io (newly added rule)...")
         try:
             response = await http_client.get("http://ipconfig.io/json")
