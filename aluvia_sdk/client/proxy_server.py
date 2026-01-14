@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-import base64
+import json
 import multiprocessing
+import os
 import sys
+import tempfile
 import threading
+import time
 from typing import Any, Optional
 
 from proxy.proxy import Proxy
 from proxy.plugin import ProxyPoolPlugin
 from proxy.http.parser import HttpParser
-from proxy.common.utils import bytes_
-from proxy.http import httpHeaders
 
 from aluvia_sdk.client.config_manager import ConfigManager
 from aluvia_sdk.client.logger import Logger
@@ -21,25 +22,99 @@ from aluvia_sdk.client.rules import should_proxy
 from aluvia_sdk.client.types import LogLevel
 from aluvia_sdk.errors import ProxyStartError
 
+IS_WINDOWS = sys.platform.startswith("win")
 
-# Shared configuration across processes - initialized lazily for Windows compatibility
+# Linux/macOS shared config (Manager-backed)
 _manager: Any = None
 _shared_config: Any = None
 _logger: Logger | None = None
+
+# Windows-only: use a JSON snapshot for rules so all spawned proxy.py workers
+# read the same config (spawn re-imports module, globals/Manager aren’t shared).
+_RULES_PATH = os.path.join(tempfile.gettempdir(), "aluvia_proxy_rules.json")
+
+_rules_cache: list[Any] = []
+_rules_mtime: float = 0.0
+_last_check: float = 0.0
 
 
 def _ensure_shared_config() -> Any:
     """
     Lazily initialize the multiprocessing Manager and shared dict.
 
-    This is required for Windows compatibility - Windows uses 'spawn' for multiprocessing,
-    which re-imports modules. Creating Manager() at import time causes infinite recursion.
+    NOTE: This is NOT used on Windows for proxy decision rules because proxy.py can
+    spawn processes that re-import modules, causing each process to create its own
+    Manager() server. On Linux/macOS, this is typically OK.
     """
     global _manager, _shared_config
     if _manager is None:
         _manager = multiprocessing.Manager()
         _shared_config = _manager.dict()
     return _shared_config
+
+
+def _write_rules_atomic(rules: Any) -> None:
+    """Windows: write rules snapshot atomically to a shared file."""
+    payload = {"rules": rules, "ts": time.time()}
+    tmp_path = _RULES_PATH + ".tmp"
+
+    # Write to temp file, flush+fsync, then atomic replace.
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+        f.flush()
+        os.fsync(f.fileno())
+
+    # Atomic on Windows (and POSIX)
+    os.replace(tmp_path, _RULES_PATH)
+
+
+def _load_rules_cached(ttl_seconds: float = 0.5) -> list[Any]:
+    """
+    Windows: load rules from snapshot file, with small per-process cache.
+
+    ttl_seconds prevents os.stat() on every request under heavy load.
+    mtime change triggers reload.
+    """
+    global _rules_cache, _rules_mtime, _last_check
+
+    now = time.time()
+    if now - _last_check < ttl_seconds:
+        return _rules_cache
+    _last_check = now
+
+    try:
+        st = os.stat(_RULES_PATH)
+        if st.st_mtime != _rules_mtime:
+            with open(_RULES_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            _rules_cache = data.get("rules", []) or []
+            _rules_mtime = st.st_mtime
+    except FileNotFoundError:
+        _rules_cache = []
+    except Exception:
+        # Keep last known good cache on transient read/parse errors
+        pass
+
+    return _rules_cache
+
+
+def _get_rules() -> list[Any]:
+    """Get current rules using the appropriate mechanism per platform."""
+    if IS_WINDOWS:
+        return _load_rules_cached(ttl_seconds=0.5)
+
+    shared_config = _ensure_shared_config()
+    return shared_config.get("rules", []) or []
+
+
+def _set_rules(rules: Any) -> None:
+    """Set current rules using the appropriate mechanism per platform."""
+    if IS_WINDOWS:
+        _write_rules_atomic(rules)
+        return
+
+    shared_config = _ensure_shared_config()
+    shared_config["rules"] = rules
 
 
 class AluviaProxyPlugin(ProxyPoolPlugin):
@@ -69,9 +144,7 @@ class AluviaProxyPlugin(ProxyPoolPlugin):
                     _logger.debug("Could not extract hostname, going direct")
                 return request  # Direct connection
 
-            # Get current rules from shared config
-            shared_config = _ensure_shared_config()
-            rules = shared_config.get("rules", [])
+            rules = _get_rules()
             if not rules:
                 if _logger:
                     _logger.debug("No rules available, going direct")
@@ -141,8 +214,16 @@ class ProxyServer:
 
     def _update_shared_config(self, key: str, value: Any) -> None:
         """Callback to update shared config dict when ConfigManager updates."""
-        shared_config = _ensure_shared_config()
-        shared_config[key] = value
+        if key == "rules":
+            _set_rules(value)
+            self.logger.debug(f"Updated shared config: {key} = {value}")
+            return
+
+        # Only maintain manager-backed shared config on non-Windows
+        if not IS_WINDOWS:
+            shared_config = _ensure_shared_config()
+            shared_config[key] = value
+
         self.logger.debug(f"Updated shared config: {key} = {value}")
 
     async def start(self, port: int | None = None) -> dict[str, Any]:
@@ -173,9 +254,8 @@ class ProxyServer:
                     "No configuration available - cannot start proxy without Aluvia gateway credentials"
                 )
 
-            # Initialize and store rules in shared dict (lazy init for Windows)
-            shared_config = _ensure_shared_config()
-            shared_config["rules"] = config.rules
+            # Windows=file snapshot, non-Windows=Manager
+            _set_rules(config.rules)
 
             # Register plugin
             module_name = f"{__name__}.AluviaProxyPlugin"
