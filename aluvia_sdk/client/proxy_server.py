@@ -22,10 +22,24 @@ from aluvia_sdk.client.types import LogLevel
 from aluvia_sdk.errors import ProxyStartError
 
 
-# Shared configuration across processes
-_manager = multiprocessing.Manager()
-_shared_config = _manager.dict()
+# Shared configuration across processes - initialized lazily for Windows compatibility
+_manager: Any = None
+_shared_config: Any = None
 _logger: Logger | None = None
+
+
+def _ensure_shared_config() -> Any:
+    """
+    Lazily initialize the multiprocessing Manager and shared dict.
+
+    This is required for Windows compatibility - Windows uses 'spawn' for multiprocessing,
+    which re-imports modules. Creating Manager() at import time causes infinite recursion.
+    """
+    global _manager, _shared_config
+    if _manager is None:
+        _manager = multiprocessing.Manager()
+        _shared_config = _manager.dict()
+    return _shared_config
 
 
 class AluviaProxyPlugin(ProxyPoolPlugin):
@@ -44,7 +58,7 @@ class AluviaProxyPlugin(ProxyPoolPlugin):
             - request: Go direct (bypass upstream proxy)
             - None: Route through upstream proxy (calls parent which uses --proxy-pool)
         """
-        global _shared_config, _logger
+        global _logger
 
         try:
             # Extract hostname from request
@@ -56,7 +70,8 @@ class AluviaProxyPlugin(ProxyPoolPlugin):
                 return request  # Direct connection
 
             # Get current rules from shared config
-            rules = _shared_config.get("rules", [])
+            shared_config = _ensure_shared_config()
+            rules = shared_config.get("rules", [])
             if not rules:
                 if _logger:
                     _logger.debug("No rules available, going direct")
@@ -126,8 +141,8 @@ class ProxyServer:
 
     def _update_shared_config(self, key: str, value: Any) -> None:
         """Callback to update shared config dict when ConfigManager updates."""
-        global _shared_config
-        _shared_config[key] = value
+        shared_config = _ensure_shared_config()
+        shared_config[key] = value
         self.logger.debug(f"Updated shared config: {key} = {value}")
 
     async def start(self, port: int | None = None) -> dict[str, Any]:
@@ -143,7 +158,7 @@ class ProxyServer:
         Raises:
             ProxyStartError: If server fails to start
         """
-        global _shared_config, _logger
+        global _logger
 
         listen_port = port or 0
 
@@ -158,8 +173,9 @@ class ProxyServer:
                     "No configuration available - cannot start proxy without Aluvia gateway credentials"
                 )
 
-            # Store rules in shared dict
-            _shared_config["rules"] = config.rules
+            # Initialize and store rules in shared dict (lazy init for Windows)
+            shared_config = _ensure_shared_config()
+            shared_config["rules"] = config.rules
 
             # Register plugin
             module_name = f"{__name__}.AluviaProxyPlugin"
