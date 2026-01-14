@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable
+from typing import Any, Callable, List, Optional, Union
 
 from aluvia_sdk.api.request import request_core
 from aluvia_sdk.client.logger import Logger
@@ -35,10 +35,10 @@ class ConnectionNetworkConfig:
     def __init__(
         self,
         raw_proxy: RawProxyConfig,
-        rules: list[str],
-        session_id: str | None,
-        target_geo: str | None,
-        etag: str | None,
+        rules: List[str],
+        session_id: Optional[str],
+        target_geo: Optional[str],
+        etag: Optional[str],
     ) -> None:
         self.raw_proxy = raw_proxy
         self.rules = rules
@@ -65,9 +65,9 @@ class ConfigManager:
         gateway_protocol: GatewayProtocol,
         gateway_port: int,
         log_level: LogLevel,
-        connection_id: int | str | None = None,
+        connection_id: Optional[Union[int, str]] = None,
         strict: bool = True,
-        shared_config_callback: Callable[[str, Any], None] | None = None,
+        shared_config_callback: Optional[Callable[[str, Any], None]] = None,
     ) -> None:
         self.api_key = api_key
         self.api_base_url = api_base_url
@@ -79,8 +79,8 @@ class ConfigManager:
         self.logger = Logger(log_level)
         self._shared_config_callback = shared_config_callback
 
-        self._config: ConnectionNetworkConfig | None = None
-        self._polling_task: asyncio.Task[None] | None = None
+        self._config: Optional[ConnectionNetworkConfig] = None
+        self._polling_task: Optional[asyncio.Task[None]] = None
         self._stop_polling = False
 
     async def init(self) -> None:
@@ -265,9 +265,9 @@ class ConfigManager:
 
     async def set_config(
         self,
-        rules: list[str] | None = None,
-        session_id: str | None = None,
-        target_geo: str | None = None,
+        rules: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
+        target_geo: Optional[str] = None,
     ) -> None:
         """
         Update configuration on the server.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 
 class MissingApiKeyError(ValueError):
     """Raised when the API key is not provided to AluviaClient or AluviaApi."""
@@ -20,7 +22,7 @@ class InvalidApiKeyError(Exception):
 class ApiError(Exception):
     """Raised for general API errors (non-2xx responses other than auth errors)."""
 
-    def __init__(self, message: str, status_code: int | None = None) -> None:
+    def __init__(self, message: str, status_code: Optional[int] = None) -> None:
         super().__init__(message)
         self.status_code = status_code
 

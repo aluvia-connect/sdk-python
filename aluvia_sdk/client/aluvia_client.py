@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from aluvia_sdk.api.aluvia_api import AluviaApi
@@ -57,11 +57,11 @@ class ConnectionObject:
         """Get Selenium proxy argument."""
         return self._as_selenium_fn()
 
-    def as_httpx_proxies(self) -> dict[str, str]:
+    def as_httpx_proxies(self) -> Dict[str, str]:
         """Get httpx proxy configuration."""
         return self._as_httpx_proxies_fn()
 
-    def as_requests_proxies(self) -> dict[str, str]:
+    def as_requests_proxies(self) -> Dict[str, str]:
         """Get requests proxy configuration."""
         return self._as_requests_proxies_fn()
 
@@ -96,12 +96,12 @@ class AluviaClient:
         api_key: str,
         api_base_url: str = "https://api.aluvia.io/v1",
         poll_interval_ms: int = 5000,
-        timeout_ms: int | None = None,
+        timeout_ms: Optional[int] = None,
         gateway_protocol: GatewayProtocol = "http",
-        gateway_port: int | None = None,
-        local_port: int | None = None,
+        gateway_port: Optional[int] = None,
+        local_port: Optional[int] = None,
         log_level: LogLevel = "info",
-        connection_id: int | str | None = None,
+        connection_id: Optional[Union[int, str]] = None,
         local_proxy: bool = True,
         strict: bool = True,
     ) -> None:
@@ -138,7 +138,7 @@ class AluviaClient:
         self.strict = strict
 
         self.logger = Logger(log_level)
-        self._connection: ConnectionObject | None = None
+        self._connection: Optional[ConnectionObject] = None
         self._started = False
         self._start_lock = asyncio.Lock()
 
@@ -230,10 +230,10 @@ class AluviaClient:
             url = f"{cfg.raw_proxy.protocol}://{cfg.raw_proxy.host}:{cfg.raw_proxy.port}"
             return to_selenium_args(url)
 
-        def as_httpx_proxies() -> dict[str, str]:
+        def as_httpx_proxies() -> Dict[str, str]:
             return to_httpx_proxies(get_proxy_url())
 
-        def as_requests_proxies() -> dict[str, str]:
+        def as_requests_proxies() -> Dict[str, str]:
             return to_requests_proxies(get_proxy_url())
 
         async def close() -> None:
@@ -255,7 +255,7 @@ class AluviaClient:
             close_fn=close,
         )
 
-    def _create_local_connection(self, info: dict[str, Any]) -> ConnectionObject:
+    def _create_local_connection(self, info: Dict[str, Any]) -> ConnectionObject:
         """Create connection object for local proxy mode."""
         url = info["url"]
 
@@ -268,10 +268,10 @@ class AluviaClient:
         def as_selenium() -> str:
             return to_selenium_args(url)
 
-        def as_httpx_proxies() -> dict[str, str]:
+        def as_httpx_proxies() -> Dict[str, str]:
             return to_httpx_proxies(url)
 
-        def as_requests_proxies() -> dict[str, str]:
+        def as_requests_proxies() -> Dict[str, str]:
             return to_requests_proxies(url)
 
         async def close() -> None:
@@ -304,7 +304,7 @@ class AluviaClient:
         self._connection = None
         self._started = False
 
-    async def update_rules(self, rules: list[str]) -> None:
+    async def update_rules(self, rules: List[str]) -> None:
         """
         Update the filtering rules used by the proxy.
 
@@ -322,7 +322,7 @@ class AluviaClient:
         """
         await self.config_manager.set_config(session_id=session_id)
 
-    async def update_target_geo(self, target_geo: str | None) -> None:
+    async def update_target_geo(self, target_geo: Optional[str]) -> None:
         """
         Update the upstream target_geo (geo targeting).
 

@@ -1,6 +1,6 @@
 """Type definitions for the API layer."""
 
-from typing import Any, Literal, TypedDict
+from typing import Any, List, Literal, Optional, TypedDict, Union
 
 
 class SuccessEnvelope(TypedDict):
@@ -47,13 +47,13 @@ class AccountPayment(TypedDict, total=False):
 class AccountConnection(TypedDict, total=False):
     """Account connection configuration."""
 
-    id: str | int
-    connection_id: str | int
+    id: Union[str, int]
+    connection_id: Union[str, int]
     proxy_username: str
     proxy_password: str
-    rules: list[str]
-    session_id: str | None
-    target_geo: str | None
+    rules: List[str]
+    session_id: Optional[str]
+    target_geo: Optional[str]
 
 
 class AccountConnectionDeleteResult(TypedDict):

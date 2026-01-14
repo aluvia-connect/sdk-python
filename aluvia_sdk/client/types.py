@@ -1,6 +1,6 @@
 """Type definitions for the client layer."""
 
-from typing import Any, Callable, Literal, Protocol, TypedDict
+from typing import Any, Callable, Literal, Protocol, TypedDict, Union
 
 GatewayProtocol = Literal["http", "https"]
 LogLevel = Literal["silent", "info", "debug"]
@@ -25,7 +25,7 @@ class AluviaClientOptions(TypedDict, total=False):
     gateway_port: int
     local_port: int
     log_level: LogLevel
-    connection_id: int | str
+    connection_id: Union[int, str]
     local_proxy: bool
     strict: bool
 

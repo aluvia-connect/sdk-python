@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Union
 
 from aluvia_sdk.api.types import (
     Account,
@@ -21,11 +21,11 @@ class ApiContext(Protocol):
         self,
         method: str,
         path: str,
-        query: dict[str, Any] | None = None,
-        body: Any | None = None,
-        headers: dict[str, str] | None = None,
-        etag: str | None = None,
-    ) -> dict[str, Any]:
+        query: Optional[Dict[str, Any]] = None,
+        body: Optional[Any] = None,
+        headers: Optional[Dict[str, str]] = None,
+        etag: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Make an API request."""
         ...
 
@@ -48,7 +48,7 @@ def _format_error_details(details: Any) -> str:
         return str(details)
 
 
-def _throw_for_non_2xx(result: dict[str, Any]) -> None:
+def _throw_for_non_2xx(result: Dict[str, Any]) -> None:
     """Raise appropriate exception for non-2xx status codes."""
     status = result["status"]
 
@@ -74,11 +74,11 @@ async def _request_and_unwrap(
     ctx: ApiContext,
     method: str,
     path: str,
-    query: dict[str, Any] | None = None,
-    body: Any | None = None,
-    headers: dict[str, str] | None = None,
-    etag: str | None = None,
-) -> dict[str, Any]:
+    query: Optional[Dict[str, Any]] = None,
+    body: Optional[Any] = None,
+    headers: Optional[Dict[str, str]] = None,
+    etag: Optional[str] = None,
+) -> Dict[str, Any]:
     """Make a request and unwrap the response envelope."""
     result = await ctx.request(method, path, query, body, headers, etag)
 
@@ -105,7 +105,7 @@ class ConnectionsApi:
     def __init__(self, ctx: ApiContext) -> None:
         self.ctx = ctx
 
-    async def list(self) -> list[AccountConnection]:
+    async def list(self) -> List[AccountConnection]:
         """List all account connections."""
         result = await _request_and_unwrap(self.ctx, "GET", "/account/connections")
         data = result["data"]
@@ -113,13 +113,13 @@ class ConnectionsApi:
 
     async def create(
         self,
-        description: str | None = None,
-        rules: list[str] | None = None,
-        session_id: str | None = None,
-        target_geo: str | None = None,
+        description: Optional[str] = None,
+        rules: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
+        target_geo: Optional[str] = None,
     ) -> AccountConnection:
         """Create a new account connection."""
-        body: dict[str, Any] = {}
+        body: Dict[str, Any] = {}
         if description is not None:
             body["description"] = description
         if rules is not None:
@@ -132,22 +132,22 @@ class ConnectionsApi:
         result = await _request_and_unwrap(self.ctx, "POST", "/account/connections", body=body)
         return result["data"] or {}
 
-    async def get(self, connection_id: int | str) -> AccountConnection:
+    async def get(self, connection_id: Union[int, str]) -> AccountConnection:
         """Get a specific connection by ID."""
         result = await _request_and_unwrap(self.ctx, "GET", f"/account/connections/{connection_id}")
         return result["data"] or {}
 
     async def patch(
         self,
-        connection_id: int | str,
-        description: str | None = None,
-        rules: list[str] | None = None,
-        session_id: str | None = None,
-        target_geo: str | None = None,
+        connection_id: Union[int, str],
+        description: Optional[str] = None,
+        rules: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
+        target_geo: Optional[str] = None,
         **kwargs: Any,
     ) -> AccountConnection:
         """Update a connection."""
-        body: dict[str, Any] = {}
+        body: Dict[str, Any] = {}
         if description is not None:
             body["description"] = description
         if rules is not None:
@@ -164,7 +164,7 @@ class ConnectionsApi:
         )
         return result["data"] or {}
 
-    async def delete(self, connection_id: int | str) -> AccountConnectionDeleteResult:
+    async def delete(self, connection_id: Union[int, str]) -> AccountConnectionDeleteResult:
         """Delete a connection."""
         result = await _request_and_unwrap(
             self.ctx, "DELETE", f"/account/connections/{connection_id}"
@@ -189,7 +189,7 @@ class AccountApi:
         result = await _request_and_unwrap(self.ctx, "GET", "/account/usage")
         return result["data"] or {}
 
-    async def payments(self) -> list[AccountPayment]:
+    async def payments(self) -> List[AccountPayment]:
         """Get account payments."""
         result = await _request_and_unwrap(self.ctx, "GET", "/account/payments")
         data = result["data"]

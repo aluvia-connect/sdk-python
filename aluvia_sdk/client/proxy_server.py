@@ -10,7 +10,7 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from proxy.proxy import Proxy
 from proxy.plugin import ProxyPoolPlugin
@@ -27,7 +27,7 @@ IS_WINDOWS = sys.platform.startswith("win")
 # Linux/macOS shared config (Manager-backed)
 _manager: Any = None
 _shared_config: Any = None
-_logger: Logger | None = None
+_logger: Optional[Logger] = None
 
 # Windows-only: use a JSON snapshot for rules so all spawned proxy.py workers
 # read the same config (spawn re-imports module, globals/Manager aren’t shared).
@@ -203,8 +203,8 @@ class ProxyServer:
     def __init__(self, config_manager: ConfigManager, log_level: LogLevel = "info") -> None:
         self.config_manager = config_manager
         self.logger = Logger(log_level)
-        self._proxy: Proxy | None = None
-        self._proxy_thread: threading.Thread | None = None
+        self._proxy: Optional[Proxy] = None
+        self._proxy_thread: Optional[threading.Thread] = None
         self._bind_host = "127.0.0.1"
         self._actual_port: int = 0
         self._shutdown_event = threading.Event()
@@ -226,7 +226,7 @@ class ProxyServer:
 
         self.logger.debug(f"Updated shared config: {key} = {value}")
 
-    async def start(self, port: int | None = None) -> dict[str, Any]:
+    async def start(self, port: Optional[int] = None) -> Dict[str, Any]:
         """
         Start the local proxy server.
 

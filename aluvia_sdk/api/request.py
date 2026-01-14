@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urlencode
 
 import httpx
@@ -16,13 +16,13 @@ async def request_core(
     api_key: str,
     method: str,
     path: str,
-    query: dict[str, Any] | None = None,
-    body: Any | None = None,
-    headers: dict[str, str] | None = None,
-    if_none_match: str | None = None,
-    timeout_ms: int | None = None,
-    client: httpx.AsyncClient | None = None,
-) -> dict[str, Any]:
+    query: Optional[Dict[str, Any]] = None,
+    body: Optional[Any] = None,
+    headers: Optional[Dict[str, str]] = None,
+    if_none_match: Optional[str] = None,
+    timeout_ms: Optional[int] = None,
+    client: Optional[httpx.AsyncClient] = None,
+) -> Dict[str, Any]:
     """
     Core HTTP request function.
 

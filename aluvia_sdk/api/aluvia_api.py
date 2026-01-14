@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, Optional
 
 import httpx
 
@@ -26,7 +26,7 @@ class AluviaApi:
         self,
         api_key: str,
         api_base_url: str = "https://api.aluvia.io/v1",
-        timeout_ms: int | None = None,
+        timeout_ms: Optional[int] = None,
     ) -> None:
         """
         Initialize the API wrapper.
@@ -55,11 +55,11 @@ class AluviaApi:
         self,
         method: str,
         path: str,
-        query: dict[str, Any] | None = None,
-        body: Any | None = None,
-        headers: dict[str, str] | None = None,
-        etag: str | None = None,
-    ) -> dict[str, Any]:
+        query: Optional[Dict[str, Any]] = None,
+        body: Optional[Any] = None,
+        headers: Optional[Dict[str, str]] = None,
+        etag: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Internal request method."""
         return await request_core(
             api_base_url=self.api_base_url,
@@ -78,10 +78,10 @@ class AluviaApi:
         self,
         method: str,
         path: str,
-        query: dict[str, Any] | None = None,
-        body: Any | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
+        query: Optional[Dict[str, Any]] = None,
+        body: Optional[Any] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         """
         Low-level request method for custom API calls.
 
