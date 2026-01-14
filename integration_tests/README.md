@@ -14,22 +14,22 @@ Comprehensive real-world integration tests for the Aluvia Python SDK.
    Or create a `.env` file (copy from `.env.example`):
 
    ```bash
-   cp integration_test/.env.example integration_test/.env
+   cp integration_tests/.env.example integration_tests/.env
    # Edit .env with your credentials
-   source integration_test/.env
+   source integration_tests/.env
    ```
 
 ## Quick Start
 
 ```bash
 # Run all integration tests
-./integration_test/run_integration_tests.sh
+./integration_tests/run_integration_tests.sh
 
 # Or run individual tests
-python integration_test/integration_api_test.py      # API tests
-python integration_test/integration_sdk_test.py      # SDK tests
-python integration_test/integration_full_workflow.py # Complete workflow
-python integration_test/quick_test.py                # Quick smoke test
+python integration_tests/integration_api_test.py      # API tests
+python integration_tests/integration_sdk_test.py      # SDK tests
+python integration_tests/integration_full_workflow.py # Complete workflow
+python integration_tests/quick_test.py                # Quick smoke test
 ```
 
 ## What's Included
@@ -46,6 +46,6 @@ See [INTEGRATION_TESTS_README.md](./INTEGRATION_TESTS_README.md) for complete do
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.9+
 - Valid Aluvia API key
 - httpx (for workflow test): `pip install httpx`

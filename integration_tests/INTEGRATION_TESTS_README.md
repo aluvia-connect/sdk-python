@@ -17,9 +17,9 @@ Tests all API CRUD operations:
 **Run with:**
 
 ```bash
-python integration_test/integration_api_test.py
+python integration_tests/integration_api_test.py
 # or
-.venv/bin/python integration_test/integration_api_test.py
+.venv/bin/python integration_tests/integration_api_test.py
 ```
 
 ### 2. `integration_sdk_test.py` - SDK Client Integration Tests
@@ -40,9 +40,9 @@ Tests all SDK client functionality:
 **Run with:**
 
 ```bash
-python integration_test/integration_sdk_test.py
+python integration_tests/integration_sdk_test.py
 # or
-.venv/bin/python integration_test/integration_sdk_test.py
+.venv/bin/python integration_tests/integration_sdk_test.py
 ```
 
 ### 3. `integration_full_workflow.py` - Complete Workflow Test
@@ -61,9 +61,9 @@ Tests a complete real-world scenario:
 **Run with:**
 
 ```bash
-python integration_test/integration_full_workflow.py
+python integration_tests/integration_full_workflow.py
 # or
-.venv/bin/python integration_test/integration_full_workflow.py
+.venv/bin/python integration_tests/integration_full_workflow.py
 ```
 
 ### 4. `run_integration_tests.sh` - Run All Tests
@@ -73,9 +73,9 @@ Bash script that runs all three test suites in sequence and provides a summary.
 **Run with:**
 
 ```bash
-./integration_test/run_integration_tests.sh
+./integration_tests/run_integration_tests.sh
 # or
-bash integration_test/run_integration_tests.sh
+bash integration_tests/run_integration_tests.sh
 ```
 
 ## Configuration
@@ -83,7 +83,7 @@ bash integration_test/run_integration_tests.sh
 The integration tests use environment variables for credentials:
 
 - **ALUVIA_API_KEY**: Your Aluvia API key (required)
-- **ALUVIA_CONNECTION_ID**: Connection ID for SDK tests (optional - tests can create their own)
+- **ALUVIA_CONNECTION_ID**: Connection ID for SDK tests (required for `integration_sdk_test.py`)
 
 ### Setup Environment Variables
 
@@ -98,13 +98,13 @@ export ALUVIA_CONNECTION_ID="your_connection_id"
 
 ```bash
 # Copy the example file
-cp integration_test/.env.example integration_test/.env
+cp integration_tests/.env.example integration_tests/.env
 
 # Edit with your credentials
-nano integration_test/.env
+nano integration_tests/.env
 
 # Source it
-source integration_test/.env
+source integration_tests/.env
 ```
 
 ## Prerequisites
