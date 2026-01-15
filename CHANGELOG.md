@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-01-15
+
+### Fixed
+
+- Fixed `connection_id` not being extracted from API response when creating new connections, which caused "Cannot update config without connection_id" errors when calling `update_target_geo()`, `update_session_id()`, or `update_rules()`
+
 ## [1.0.0] - 2026-01-12
 
 ### Added
