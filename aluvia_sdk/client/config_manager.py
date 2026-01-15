@@ -110,6 +110,13 @@ class ConfigManager:
             if result["status"] < 200 or result["status"] >= 300:
                 self._handle_error_response(result)
 
+            if self.connection_id is None:
+                body = result.get("body", {})
+                if isinstance(body, dict):
+                    data = body.get("data", {})
+                    if isinstance(data, dict):
+                        self.connection_id = data.get("connection_id")
+
             self._parse_and_update_config(result)
             self.logger.info("ConfigManager: Initial configuration loaded")
 
