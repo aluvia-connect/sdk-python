@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aluvia-sdk"
-version = "1.0.0"
+version = "1.0.1"
 description = "Aluvia SDK for Python - local smart proxy for automation workloads and AI agents"
 authors = [{name = "Aluvia", email = "support@aluvia.io"}]
 license = "MIT"

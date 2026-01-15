@@ -4,8 +4,8 @@
 
 cat > integration_test/.env << 'EOF'
 # Aluvia SDK Integration Tests - Environment Variables
-ALUVIA_API_KEY=97d13ab4022a0f9751dea41efeb81c1f22c41c8091f24ebab0de6b8f0b46c1b4
-ALUVIA_CONNECTION_ID=1850
+ALUVIA_API_KEY=YOUR_API_KEY
+ALUVIA_CONNECTION_ID=YOUR_CONNECTION_ID
 EOF
 
 echo "✅ Created integration_test/.env with your credentials"
