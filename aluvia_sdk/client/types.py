@@ -49,11 +49,11 @@ class AluviaClientConnection(Protocol):
         """Get Selenium proxy argument."""
         ...
 
-    def as_httpx_proxies(self) -> dict[str, str]:
+    def as_httpx(self) -> dict[str, str]:
         """Get httpx proxy configuration."""
         ...
 
-    def as_requests_proxies(self) -> dict[str, str]:
+    def as_requests(self) -> dict[str, str]:
         """Get requests proxy configuration."""
         ...
 
