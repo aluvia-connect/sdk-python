@@ -29,7 +29,7 @@ def to_selenium_args(server_url: str) -> str:
     return f"--proxy-server={server_url}"
 
 
-def to_httpx_proxies(server_url: str) -> dict[str, str]:
+def to_httpx(server_url: str) -> dict[str, str]:
     """
     Convert proxy URL to httpx proxies configuration.
 
@@ -42,7 +42,7 @@ def to_httpx_proxies(server_url: str) -> dict[str, str]:
     return {"http://": server_url, "https://": server_url}
 
 
-def to_requests_proxies(server_url: str) -> dict[str, str]:
+def to_requests(server_url: str) -> dict[str, str]:
     """
     Convert proxy URL to requests proxies configuration.
 
@@ -55,7 +55,7 @@ def to_requests_proxies(server_url: str) -> dict[str, str]:
     return {"http": server_url, "https": server_url}
 
 
-def to_aiohttp_proxy(server_url: str) -> str:
+def to_aiohttp(server_url: str) -> str:
     """
     Convert proxy URL to aiohttp proxy string.
 

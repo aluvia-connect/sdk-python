@@ -104,15 +104,15 @@ async def test_local_proxy_mode():
         print(f"   ✓ Selenium args: {selenium_args}")
 
         # httpx
-        httpx_proxies = connection.as_httpx_proxies()
+        httpx_proxies = connection.as_httpx()
         print(f"   ✓ httpx proxies: {httpx_proxies}")
 
         # requests
-        requests_proxies = connection.as_requests_proxies()
+        requests_proxies = connection.as_requests()
         print(f"   ✓ requests proxies: {requests_proxies}")
 
         # aiohttp
-        aiohttp_proxy = connection.as_aiohttp_proxy()
+        aiohttp_proxy = connection.as_aiohttp()
         print(f"   ✓ aiohttp proxy: {aiohttp_proxy}")
 
         # Test 2.4: Keep connection alive briefly

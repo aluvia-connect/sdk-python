@@ -8,9 +8,9 @@ from urllib.parse import quote
 
 from aluvia_sdk.api.aluvia_api import AluviaApi
 from aluvia_sdk.client.adapters import (
-    to_httpx_proxies,
+    to_httpx,
     to_playwright_proxy_settings,
-    to_requests_proxies,
+    to_requests,
     to_selenium_args,
 )
 from aluvia_sdk.client.config_manager import ConfigManager
@@ -31,8 +31,8 @@ class ConnectionObject:
         get_url_fn: Any,
         as_playwright_fn: Any,
         as_selenium_fn: Any,
-        as_httpx_proxies_fn: Any,
-        as_requests_proxies_fn: Any,
+        as_httpx_fn: Any,
+        as_requests_fn: Any,
         close_fn: Any,
     ) -> None:
         self.host = host
@@ -41,8 +41,8 @@ class ConnectionObject:
         self._get_url_fn = get_url_fn
         self._as_playwright_fn = as_playwright_fn
         self._as_selenium_fn = as_selenium_fn
-        self._as_httpx_proxies_fn = as_httpx_proxies_fn
-        self._as_requests_proxies_fn = as_requests_proxies_fn
+        self._as_httpx_fn = as_httpx_fn
+        self._as_requests_fn = as_requests_fn
         self._close_fn = close_fn
 
     def get_url(self) -> str:
@@ -57,15 +57,15 @@ class ConnectionObject:
         """Get Selenium proxy argument."""
         return self._as_selenium_fn()
 
-    def as_httpx_proxies(self) -> Dict[str, str]:
+    def as_httpx(self) -> Dict[str, str]:
         """Get httpx proxy configuration."""
-        return self._as_httpx_proxies_fn()
+        return self._as_httpx_fn()
 
-    def as_requests_proxies(self) -> Dict[str, str]:
+    def as_requests(self) -> Dict[str, str]:
         """Get requests proxy configuration."""
-        return self._as_requests_proxies_fn()
+        return self._as_requests_fn()
 
-    def as_aiohttp_proxy(self) -> str:
+    def as_aiohttp(self) -> str:
         """Get aiohttp proxy URL."""
         return self.url
 
@@ -230,11 +230,11 @@ class AluviaClient:
             url = f"{cfg.raw_proxy.protocol}://{cfg.raw_proxy.host}:{cfg.raw_proxy.port}"
             return to_selenium_args(url)
 
-        def as_httpx_proxies() -> Dict[str, str]:
-            return to_httpx_proxies(get_proxy_url())
+        def as_httpx() -> Dict[str, str]:
+            return to_httpx(get_proxy_url())
 
-        def as_requests_proxies() -> Dict[str, str]:
-            return to_requests_proxies(get_proxy_url())
+        def as_requests() -> Dict[str, str]:
+            return to_requests(get_proxy_url())
 
         async def close() -> None:
             await self.config_manager.stop_polling()
@@ -250,8 +250,8 @@ class AluviaClient:
             get_url_fn=get_proxy_url,
             as_playwright_fn=as_playwright,
             as_selenium_fn=as_selenium,
-            as_httpx_proxies_fn=as_httpx_proxies,
-            as_requests_proxies_fn=as_requests_proxies,
+            as_httpx_fn=as_httpx,
+            as_requests_fn=as_requests,
             close_fn=close,
         )
 
@@ -268,11 +268,11 @@ class AluviaClient:
         def as_selenium() -> str:
             return to_selenium_args(url)
 
-        def as_httpx_proxies() -> Dict[str, str]:
-            return to_httpx_proxies(url)
+        def as_httpx() -> Dict[str, str]:
+            return to_httpx(url)
 
-        def as_requests_proxies() -> Dict[str, str]:
-            return to_requests_proxies(url)
+        def as_requests() -> Dict[str, str]:
+            return to_requests(url)
 
         async def close() -> None:
             await self.proxy_server.stop()
@@ -287,8 +287,8 @@ class AluviaClient:
             get_url_fn=get_url,
             as_playwright_fn=as_playwright,
             as_selenium_fn=as_selenium,
-            as_httpx_proxies_fn=as_httpx_proxies,
-            as_requests_proxies_fn=as_requests_proxies,
+            as_httpx_fn=as_httpx,
+            as_requests_fn=as_requests,
             close_fn=close,
         )
 
