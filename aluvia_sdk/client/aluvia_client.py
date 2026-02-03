@@ -34,6 +34,7 @@ class ConnectionObject:
         as_httpx_fn: Any,
         as_requests_fn: Any,
         close_fn: Any,
+        browser: Any = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -44,6 +45,7 @@ class ConnectionObject:
         self._as_httpx_fn = as_httpx_fn
         self._as_requests_fn = as_requests_fn
         self._close_fn = close_fn
+        self.browser = browser
 
     def get_url(self) -> str:
         """Get the current proxy URL."""
@@ -104,6 +106,7 @@ class AluviaClient:
         connection_id: Optional[Union[int, str]] = None,
         local_proxy: bool = True,
         strict: bool = True,
+        start_playwright: bool = False,
     ) -> None:
         """
         Initialize AluviaClient.
@@ -141,6 +144,8 @@ class AluviaClient:
         self._connection: Optional[ConnectionObject] = None
         self._started = False
         self._start_lock = asyncio.Lock()
+        self._start_playwright = start_playwright
+        self._browser = None
 
         # Create ConfigManager
         self.config_manager = ConfigManager(
@@ -183,6 +188,26 @@ class AluviaClient:
             if not self.local_proxy and not self.config_manager.get_config():
                 raise ApiError("Failed to load connection config; cannot start in gateway mode")
 
+            browser = None
+            if self._start_playwright:
+                try:
+                    from playwright.async_api import async_playwright
+                    playwright = await async_playwright().start()
+                    # Use Chromium, configure proxy
+                    proxy_settings = None
+                    if not self.local_proxy:
+                        proxy_settings = self._create_gateway_connection().as_playwright()
+                    else:
+                        # Use the local proxy URL
+                        info = await self.proxy_server.start(self.local_port)
+                        proxy_settings = self._create_local_connection(info).as_playwright()
+                    browser = await playwright.chromium.launch(proxy={
+                        k: v for k, v in proxy_settings.items() if v
+                    })
+                    self._browser = browser
+                except Exception as e:
+                    raise ApiError(f"Failed to start Playwright: {e}")
+
             if not self.local_proxy:
                 # Gateway mode - no local proxy
                 self.logger.debug("localProxy disabled — local proxy will not start")
@@ -192,6 +217,10 @@ class AluviaClient:
                 self.config_manager.start_polling()
                 info = await self.proxy_server.start(self.local_port)
                 connection = self._create_local_connection(info)
+
+            # Attach browser if started
+            if browser:
+                connection.browser = browser
 
             self._connection = connection
             self._started = True
@@ -296,6 +325,14 @@ class AluviaClient:
         """Stop the client and clean up resources."""
         if not self._started:
             return
+
+        # Close Playwright browser if started
+        if self._browser:
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
+            self._browser = None
 
         if self.local_proxy:
             await self.proxy_server.stop()
