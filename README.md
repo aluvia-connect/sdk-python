@@ -66,6 +66,26 @@ pip install aluvia-sdk
 
 **Requirements:** Python 3.9 or later
 
+#### Optional dependencies (tool integrations)
+
+Some integrations require extra packages. These are not installed by default:
+
+- **Playwright integration:**
+    ```bash
+    pip install aluvia-sdk[playwright]
+    ```
+- **Selenium integration:**
+    ```bash
+    pip install aluvia-sdk[selenium]
+    ```
+
+You can also install both:
+```bash
+pip install aluvia-sdk[playwright,selenium]
+```
+
+If you use these adapters in your code, make sure the corresponding package is installed.
+
 ### Example: Dynamic unblocking with Playwright
 
 This example shows how an agent can use the Aluvia client to dynamically unblock websites. It demonstrates starting the client, using the Playwright integration adapter, configuring geo targeting and session ID, detecting blocks, and updating routing rules on the fly.
