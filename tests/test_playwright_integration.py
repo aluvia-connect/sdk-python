@@ -1,9 +1,18 @@
 """Tests for Playwright integration with start_playwright parameter."""
 
 import pytest
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 from aluvia_sdk import AluviaClient
 from aluvia_sdk.errors import ApiError
+
+# Check if Playwright is available
+try:
+    import playwright
+
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
 
 
 class TestPlaywrightIntegration:
@@ -65,13 +74,14 @@ class TestPlaywrightIntegration:
             return_value={"host": "127.0.0.1", "port": 54321, "url": "http://127.0.0.1:54321"}
         )
 
-        # Mock Playwright import to fail
-        with patch("builtins.__import__", side_effect=ImportError("No module named 'playwright'")):
+        # Mock Playwright import to fail by patching sys.modules
+        with patch.dict("sys.modules", {"playwright.async_api": None}):
             with pytest.raises(ApiError) as exc_info:
                 await client.start()
 
             assert "Failed to start Playwright" in str(exc_info.value)
 
+    @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     @pytest.mark.asyncio
     async def test_launches_browser_in_local_proxy_mode(self) -> None:
         """Test that browser is launched in local proxy mode when start_playwright is True."""
@@ -124,6 +134,7 @@ class TestPlaywrightIntegration:
             # Verify browser was closed
             assert mock_browser.close.called
 
+    @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     @pytest.mark.asyncio
     async def test_launches_browser_in_gateway_mode(self) -> None:
         """Test that browser is launched in gateway mode when start_playwright is True."""
@@ -184,6 +195,7 @@ class TestPlaywrightIntegration:
             # Verify browser was closed
             assert mock_browser.close.called
 
+    @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     @pytest.mark.asyncio
     async def test_connection_close_closes_browser(self) -> None:
         """Test that connection.close() properly closes the browser."""
@@ -230,6 +242,7 @@ class TestPlaywrightIntegration:
             # Verify browser.close() was called
             assert mock_browser.close.called
 
+    @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     @pytest.mark.asyncio
     async def test_client_stop_closes_browser(self) -> None:
         """Test that client.stop() properly closes the browser."""
@@ -276,6 +289,7 @@ class TestPlaywrightIntegration:
             # Verify browser.close() was called
             assert mock_browser.close.called
 
+    @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     @pytest.mark.asyncio
     async def test_browser_close_handles_errors_gracefully(self) -> None:
         """Test that browser close errors are handled gracefully."""
