@@ -139,6 +139,54 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
+### Example: Auto-launch Playwright browser
+
+For even simpler setup, the SDK can automatically launch a Chromium browser that's already configured with the Aluvia proxy. This eliminates the need to manually import Playwright and configure proxy settings.
+
+```python
+import asyncio
+from aluvia_sdk import AluviaClient
+
+async def main():
+    # Initialize with start_playwright option to auto-launch browser
+    client = AluviaClient(
+        api_key="your-api-key",
+        start_playwright=True,  # Automatically launch and configure Chromium
+    )
+
+    # Start the client - this also launches the browser
+    connection = await client.start()
+
+    # Browser is already configured with Aluvia proxy
+    browser = connection.browser
+    page = await browser.new_page()
+
+    # Configure geo targeting and session ID
+    await client.update_target_geo("us_ca")
+    await client.update_session_id("session1")
+
+    # Navigate directly - proxy is already configured
+    await page.goto("https://example.com")
+    print("Title:", await page.title())
+
+    # Cleanup - automatically closes both browser and proxy
+    await connection.close()
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+**Note:** To use `start_playwright=True`, you must install Playwright:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+### Integration guides
+
+The Aluvia client provides ready-to-use adapters for popular automation and HTTP tools. Check the integration examples in the [Node.js SDK docs](https://github.com/aluvia-connect/sdk-node/tree/main/docs/integrations) for reference patterns that can be adapted to Python.
+
 ---
 
 ## Architecture
@@ -212,8 +260,9 @@ Set `local_proxy=False` to enable.
 ```python
 client = AluviaClient(
     api_key=os.environ["ALUVIA_API_KEY"],
-    connection_id=123,  # Optional: reuse an existing connection
-    local_proxy=True,   # Optional: default True (recommended)
+    connection_id=123,       # Optional: reuse an existing connection
+    local_proxy=True,        # Optional: default True (recommended)
+    start_playwright=True,   # Optional: auto-launch Chromium browser
 )
 ```
 
@@ -224,6 +273,7 @@ connection = await client.start()
 ```
 
 This starts the local proxy and returns a connection object you'll use with your tools.
+[Understanding the connection object](https://docs.aluvia.io/fundamentals/connections)
 
 ### 3. Use the connection with your tools
 
@@ -253,7 +303,7 @@ await connection.close()  # Stops proxy, polling, and releases resources
 
 ## Routing rules
 
-The Aluvia Client starts a local proxy server that routes each request based on hostname rules that you (or your agent) set. **Rules can be updated at runtime without restarting the agent.**
+The Aluvia Client starts a local proxy server that routes each request based on hostname rules that you (or our agent) set. **Rules can be updated at runtime without restarting the agent.**
 
 Traffic can be sent either:
 
@@ -312,19 +362,53 @@ Your agent learns which sites need proxying as it runs. Sites that don't block y
 
 Every tool has its own way of configuring proxies—Playwright wants a dict with server/username/password, Selenium wants a string, httpx wants an agent, and some tools don't support proxies at all. The SDK handles all of this for you:
 
-| Tool       | Method                       | Returns                                                   |
-| ---------- | ---------------------------- | --------------------------------------------------------- |
-| Playwright | `connection.as_playwright()` | `{"server": "...", "username": "...", "password": "..."}` |
-| Selenium   | `connection.as_selenium()`   | `"--proxy-server=..."`                                    |
-| httpx      | `connection.as_httpx()`      | `httpx.HTTPTransport(proxy=...)`                          |
-| requests   | `connection.as_requests()`   | `{"http": "...", "https": "..."}`                         |
-| aiohttp    | `connection.as_aiohttp()`    | `"http://username:password@host:port"`                    |
+| Tool       | Method                       | Returns                                                     |
+| ---------- | ---------------------------- | ----------------------------------------------------------- |
+| Playwright | `connection.as_playwright()` | `{"server": "...", "username": "...", "password": "..."}`   |
+| Playwright | `connection.browser`         | Auto-launched Chromium browser (if `start_playwright=True`) |
+| Selenium   | `connection.as_selenium()`   | `"--proxy-server=..."`                                      |
+| httpx      | `connection.as_httpx()`      | `httpx.HTTPTransport(proxy=...)`                            |
+| requests   | `connection.as_requests()`   | `{"http": "...", "https": "..."}`                           |
+| aiohttp    | `connection.as_aiohttp()`    | `"http://username:password@host:port"`                      |
+
+**Playwright auto-launch:** Set `start_playwright=True` in the client options to automatically launch a Chromium browser that's already configured with the Aluvia proxy. The browser is available via `connection.browser` and is automatically cleaned up when you call `connection.close()`.
 
 ---
 
 ## Aluvia API
 
 `AluviaApi` is a typed wrapper for the Aluvia REST API. Use it to manage connections, query account info, or build custom tooling—without starting a proxy.
+
+`AluviaApi` is built from modular layers:
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                         AluviaApi                             │
+│    Constructor validates api_key, creates namespace objects   │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │
+│   │   account   │    │    geos     │    │   request   │      │
+│   │  namespace  │    │  namespace  │    │  (escape    │      │
+│   │             │    │             │    │   hatch)    │      │
+│   └─────────────┘    └─────────────┘    └─────────────┘      │
+│          │                  │                  │              │
+│          ▼                  ▼                  ▼              │
+│   ┌────────────────────────────────────────────────────┐     │
+│   │              request_and_unwrap / request           │     │
+│   │         (envelope unwrapping, error throwing)      │     │
+│   └────────────────────────────────────────────────────┘     │
+│                            │                                  │
+│                            ▼                                  │
+│   ┌────────────────────────────────────────────────────┐     │
+│   │                   request_core                      │     │
+│   │    (URL building, headers, timeout, JSON parsing)   │     │
+│   └────────────────────────────────────────────────────┘     │
+│                            │                                  │
+│                            ▼                                  │
+│                      httpx / requests                         │
+└───────────────────────────────────────────────────────────────┘
+```
 
 ### What you can do
 
