@@ -71,15 +71,16 @@ pip install aluvia-sdk
 Some integrations require extra packages. These are not installed by default:
 
 - **Playwright integration:**
-    ```bash
-    pip install aluvia-sdk[playwright]
-    ```
+  ```bash
+  pip install aluvia-sdk[playwright]
+  ```
 - **Selenium integration:**
-    ```bash
-    pip install aluvia-sdk[selenium]
-    ```
+  ```bash
+  pip install aluvia-sdk[selenium]
+  ```
 
 You can also install both:
+
 ```bash
 pip install aluvia-sdk[playwright,selenium]
 ```
@@ -159,6 +160,50 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
+### Example: Auto-launch Playwright browser
+
+For even simpler setup, the SDK can automatically launch a Chromium browser that's already configured with the Aluvia proxy. This eliminates the need to manually import Playwright and configure proxy settings.
+
+```python
+import asyncio
+from aluvia_sdk import AluviaClient
+
+async def main():
+    # Initialize with start_playwright option to auto-launch browser
+    client = AluviaClient(
+        api_key="your-api-key",
+        start_playwright=True,  # Automatically launch and configure Chromium
+    )
+
+    # Start the client - this also launches the browser
+    connection = await client.start()
+
+    # Browser is already configured with Aluvia proxy
+    browser = connection.browser
+    page = await browser.new_page()
+
+    # Configure geo targeting and session ID
+    await client.update_target_geo("us_ca")
+    await client.update_session_id("session1")
+
+    # Navigate directly - proxy is already configured
+    await page.goto("https://example.com")
+    print("Title:", await page.title())
+
+    # Cleanup - automatically closes both browser and proxy
+    await connection.close()
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+**Note:** To use `start_playwright=True`, you must install Playwright:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
 ---
 
 ## Architecture
@@ -232,8 +277,9 @@ Set `local_proxy=False` to enable.
 ```python
 client = AluviaClient(
     api_key=os.environ["ALUVIA_API_KEY"],
-    connection_id=123,  # Optional: reuse an existing connection
-    local_proxy=True,   # Optional: default True (recommended)
+    connection_id=123,       # Optional: reuse an existing connection
+    local_proxy=True,        # Optional: default True (recommended)
+    start_playwright=True,   # Optional: auto-launch Chromium browser
 )
 ```
 
@@ -332,13 +378,16 @@ Your agent learns which sites need proxying as it runs. Sites that don't block y
 
 Every tool has its own way of configuring proxies—Playwright wants a dict with server/username/password, Selenium wants a string, httpx wants an agent, and some tools don't support proxies at all. The SDK handles all of this for you:
 
-| Tool       | Method                       | Returns                                                   |
-| ---------- | ---------------------------- | --------------------------------------------------------- |
-| Playwright | `connection.as_playwright()` | `{"server": "...", "username": "...", "password": "..."}` |
-| Selenium   | `connection.as_selenium()`   | `"--proxy-server=..."`                                    |
-| httpx      | `connection.as_httpx()`      | `httpx.HTTPTransport(proxy=...)`                          |
-| requests   | `connection.as_requests()`   | `{"http": "...", "https": "..."}`                         |
-| aiohttp    | `connection.as_aiohttp()`    | `"http://username:password@host:port"`                    |
+| Tool       | Method                       | Returns                                                     |
+| ---------- | ---------------------------- | ----------------------------------------------------------- |
+| Playwright | `connection.as_playwright()` | `{"server": "...", "username": "...", "password": "..."}`   |
+| Playwright | `connection.browser`         | Auto-launched Chromium browser (if `start_playwright=True`) |
+| Selenium   | `connection.as_selenium()`   | `"--proxy-server=..."`                                      |
+| httpx      | `connection.as_httpx()`      | `httpx.HTTPTransport(proxy=...)`                            |
+| requests   | `connection.as_requests()`   | `{"http": "...", "https": "..."}`                           |
+| aiohttp    | `connection.as_aiohttp()`    | `"http://username:password@host:port"`                      |
+
+**Playwright auto-launch:** Set `start_playwright=True` in the client options to automatically launch a Chromium browser that's already configured with the Aluvia proxy. The browser is available via `connection.browser` and is automatically cleaned up when you call `connection.close()`.
 
 ---
 

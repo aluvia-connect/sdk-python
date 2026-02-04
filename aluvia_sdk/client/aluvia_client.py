@@ -123,6 +123,8 @@ class AluviaClient:
             connection_id: Existing connection ID to use
             local_proxy: Whether to start local proxy (default: True)
             strict: Strict mode for error handling
+            start_playwright: Automatically start Playwright and return browser instance
+                            (default: False). Browser available via connection.browser
         """
         api_key = str(api_key or "").strip()
         if not api_key:
@@ -192,6 +194,7 @@ class AluviaClient:
             if self._start_playwright:
                 try:
                     from playwright.async_api import async_playwright
+
                     playwright = await async_playwright().start()
                     # Use Chromium, configure proxy
                     proxy_settings = None
@@ -201,9 +204,9 @@ class AluviaClient:
                         # Use the local proxy URL
                         info = await self.proxy_server.start(self.local_port)
                         proxy_settings = self._create_local_connection(info).as_playwright()
-                    browser = await playwright.chromium.launch(proxy={
-                        k: v for k, v in proxy_settings.items() if v
-                    })
+                    browser = await playwright.chromium.launch(
+                        proxy={k: v for k, v in proxy_settings.items() if v}
+                    )
                     self._browser = browser
                 except Exception as e:
                     raise ApiError(f"Failed to start Playwright: {e}")
@@ -266,6 +269,12 @@ class AluviaClient:
             return to_requests(get_proxy_url())
 
         async def close() -> None:
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception:
+                    pass
+                self._browser = None
             await self.config_manager.stop_polling()
             self._connection = None
             self._started = False
@@ -304,6 +313,12 @@ class AluviaClient:
             return to_requests(url)
 
         async def close() -> None:
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception:
+                    pass
+                self._browser = None
             await self.proxy_server.stop()
             await self.config_manager.stop_polling()
             self._connection = None

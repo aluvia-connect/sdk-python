@@ -37,6 +37,7 @@ class AluviaClientConnection(Protocol):
     host: str
     port: int
     url: str
+    browser: Any
 
     def get_url(self) -> str:
         """Get the current proxy URL."""
