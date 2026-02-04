@@ -66,27 +66,6 @@ pip install aluvia-sdk
 
 **Requirements:** Python 3.9 or later
 
-#### Optional dependencies (tool integrations)
-
-Some integrations require extra packages. These are not installed by default:
-
-- **Playwright integration:**
-  ```bash
-  pip install aluvia-sdk[playwright]
-  ```
-- **Selenium integration:**
-  ```bash
-  pip install aluvia-sdk[selenium]
-  ```
-
-You can also install both:
-
-```bash
-pip install aluvia-sdk[playwright,selenium]
-```
-
-If you use these adapters in your code, make sure the corresponding package is installed.
-
 ### Example: Dynamic unblocking with Playwright
 
 This example shows how an agent can use the Aluvia client to dynamically unblock websites. It demonstrates starting the client, using the Playwright integration adapter, configuring geo targeting and session ID, detecting blocks, and updating routing rules on the fly.
@@ -204,6 +183,10 @@ pip install playwright
 playwright install chromium
 ```
 
+### Integration guides
+
+The Aluvia client provides ready-to-use adapters for popular automation and HTTP tools. Check the integration examples in the [Node.js SDK docs](https://github.com/aluvia-connect/sdk-node/tree/main/docs/integrations) for reference patterns that can be adapted to Python.
+
 ---
 
 ## Architecture
@@ -290,6 +273,7 @@ connection = await client.start()
 ```
 
 This starts the local proxy and returns a connection object you'll use with your tools.
+[Understanding the connection object](https://docs.aluvia.io/fundamentals/connections)
 
 ### 3. Use the connection with your tools
 
@@ -319,7 +303,7 @@ await connection.close()  # Stops proxy, polling, and releases resources
 
 ## Routing rules
 
-The Aluvia Client starts a local proxy server that routes each request based on hostname rules that you (or your agent) set. **Rules can be updated at runtime without restarting the agent.**
+The Aluvia Client starts a local proxy server that routes each request based on hostname rules that you (or our agent) set. **Rules can be updated at runtime without restarting the agent.**
 
 Traffic can be sent either:
 
@@ -394,6 +378,37 @@ Every tool has its own way of configuring proxies—Playwright wants a dict with
 ## Aluvia API
 
 `AluviaApi` is a typed wrapper for the Aluvia REST API. Use it to manage connections, query account info, or build custom tooling—without starting a proxy.
+
+`AluviaApi` is built from modular layers:
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                         AluviaApi                             │
+│    Constructor validates api_key, creates namespace objects   │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │
+│   │   account   │    │    geos     │    │   request   │      │
+│   │  namespace  │    │  namespace  │    │  (escape    │      │
+│   │             │    │             │    │   hatch)    │      │
+│   └─────────────┘    └─────────────┘    └─────────────┘      │
+│          │                  │                  │              │
+│          ▼                  ▼                  ▼              │
+│   ┌────────────────────────────────────────────────────┐     │
+│   │              request_and_unwrap / request           │     │
+│   │         (envelope unwrapping, error throwing)      │     │
+│   └────────────────────────────────────────────────────┘     │
+│                            │                                  │
+│                            ▼                                  │
+│   ┌────────────────────────────────────────────────────┐     │
+│   │                   request_core                      │     │
+│   │    (URL building, headers, timeout, JSON parsing)   │     │
+│   └────────────────────────────────────────────────────┘     │
+│                            │                                  │
+│                            ▼                                  │
+│                      httpx / requests                         │
+└───────────────────────────────────────────────────────────────┘
+```
 
 ### What you can do
 
