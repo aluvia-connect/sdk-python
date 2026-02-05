@@ -28,6 +28,7 @@ class AluviaClientOptions(TypedDict, total=False):
     connection_id: Union[int, str]
     local_proxy: bool
     strict: bool
+    start_playwright: bool
 
 
 class AluviaClientConnection(Protocol):
@@ -36,6 +37,7 @@ class AluviaClientConnection(Protocol):
     host: str
     port: int
     url: str
+    browser: Any
 
     def get_url(self) -> str:
         """Get the current proxy URL."""

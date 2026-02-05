@@ -430,6 +430,183 @@ async def test_error_cases():
     return True
 
 
+async def test_playwright_integration():
+    """Test Playwright integration with start_playwright parameter."""
+    print("\n" + "=" * 70)
+    print("TEST 10: Playwright Integration")
+    print("=" * 70)
+
+    # Check if Playwright is installed
+    try:
+        from playwright.async_api import async_playwright
+
+        playwright_installed = True
+    except ImportError:
+        playwright_installed = False
+        print("\n⚠ Playwright not installed - skipping browser launch tests")
+        print("   Install with: pip install playwright && playwright install chromium")
+
+    # Test 10.1: Browser property is None by default
+    print("\n10.1 Testing browser property defaults to None...")
+    try:
+        client = AluviaClient(
+            api_key=API_KEY,
+            connection_id=CONNECTION_ID,
+            local_proxy=True,
+            log_level="silent",
+        )
+        connection = await client.start()
+
+        if connection.browser is None:
+            print("   ✓ Browser property is None when start_playwright not set")
+        else:
+            print("   ✗ Browser property should be None by default")
+            await connection.close()
+            return False
+
+        await connection.close()
+    except Exception as e:
+        print(f"   ✗ Failed: {e}")
+        return False
+
+    # Test 10.2: Browser property is None when start_playwright=False
+    print("\n10.2 Testing browser property with start_playwright=False...")
+    try:
+        client = AluviaClient(
+            api_key=API_KEY,
+            connection_id=CONNECTION_ID,
+            local_proxy=True,
+            start_playwright=False,
+            log_level="silent",
+        )
+        connection = await client.start()
+
+        if connection.browser is None:
+            print("   ✓ Browser property is None when start_playwright=False")
+        else:
+            print("   ✗ Browser property should be None when start_playwright=False")
+            await connection.close()
+            return False
+
+        await connection.close()
+    except Exception as e:
+        print(f"   ✗ Failed: {e}")
+        return False
+
+    if not playwright_installed:
+        print("\n10.3-10.5 Skipped (Playwright not installed)")
+        return True
+
+    # Test 10.3: Browser launches in local proxy mode
+    print("\n10.3 Testing browser launch in local proxy mode...")
+    try:
+        client = AluviaClient(
+            api_key=API_KEY,
+            connection_id=CONNECTION_ID,
+            local_proxy=True,
+            start_playwright=True,
+            log_level="silent",
+        )
+        connection = await client.start()
+
+        if connection.browser is not None:
+            print("   ✓ Browser launched successfully")
+            print(f"   - Browser type: {type(connection.browser).__name__}")
+
+            # Test that we can create a page
+            page = await connection.browser.new_page()
+            print("   ✓ Created new page successfully")
+            await page.close()
+            print("   ✓ Closed page successfully")
+        else:
+            print("   ✗ Browser should be launched when start_playwright=True")
+            await connection.close()
+            return False
+
+        await connection.close()
+        print("   ✓ Browser closed via connection.close()")
+    except Exception as e:
+        print(f"   ✗ Failed: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+    # Test 10.4: Browser launches in gateway mode
+    print("\n10.4 Testing browser launch in gateway mode...")
+    try:
+        client = AluviaClient(
+            api_key=API_KEY,
+            connection_id=CONNECTION_ID,
+            local_proxy=False,
+            start_playwright=True,
+            log_level="silent",
+        )
+        connection = await client.start()
+
+        if connection.browser is not None:
+            print("   ✓ Browser launched in gateway mode")
+
+            # Test that we can create a page
+            page = await connection.browser.new_page()
+            print("   ✓ Created new page successfully")
+            await page.close()
+            print("   ✓ Closed page successfully")
+        else:
+            print("   ✗ Browser should be launched in gateway mode")
+            await connection.close()
+            return False
+
+        await connection.close()
+        print("   ✓ Browser closed via connection.close()")
+    except Exception as e:
+        print(f"   ✗ Failed: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+    # Test 10.5: Browser can navigate to a page
+    print("\n10.5 Testing browser navigation...")
+    try:
+        client = AluviaClient(
+            api_key=API_KEY,
+            connection_id=CONNECTION_ID,
+            local_proxy=True,
+            start_playwright=True,
+            log_level="silent",
+        )
+        connection = await client.start()
+
+        page = await connection.browser.new_page()
+
+        # Navigate to a simple test page
+        print("   - Navigating to httpbin.org/status/200...")
+        response = await page.goto("https://httpbin.org/status/200", timeout=10000)
+
+        if response and response.status == 200:
+            print(f"   ✓ Successfully navigated (status: {response.status})")
+        else:
+            print(
+                f"   ✗ Navigation failed or wrong status: {response.status if response else 'None'}"
+            )
+            await page.close()
+            await connection.close()
+            return False
+
+        await page.close()
+        await connection.close()
+        print("   ✓ Navigation test completed successfully")
+
+        return True
+    except Exception as e:
+        print(f"   ✗ Failed: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+
 async def main():
     """Run all SDK integration tests."""
     print("\n")
@@ -454,6 +631,7 @@ async def main():
     results["Context Manager"] = await test_context_manager()
     results["Multiple Starts"] = await test_multiple_starts()
     results["Error Handling"] = await test_error_cases()
+    results["Playwright Integration"] = await test_playwright_integration()
 
     # Summary
     print("\n" + "=" * 70)
