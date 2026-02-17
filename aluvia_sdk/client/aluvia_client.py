@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import tempfile
+import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
@@ -17,6 +20,11 @@ from aluvia_sdk.client.config_manager import ConfigManager
 from aluvia_sdk.client.logger import Logger
 from aluvia_sdk.client.proxy_server import ProxyServer
 from aluvia_sdk.client.types import GatewayProtocol, LogLevel, PlaywrightProxySettings
+from aluvia_sdk.client.block_detection import (
+    BlockDetection,
+    BlockDetectionConfig,
+    BlockDetectionResult,
+)
 from aluvia_sdk.errors import ApiError, MissingApiKeyError
 
 
@@ -35,6 +43,8 @@ class ConnectionObject:
         as_requests_fn: Any,
         close_fn: Any,
         browser: Any = None,
+        browser_context: Any = None,
+        cdp_url: str = "",
     ) -> None:
         self.host = host
         self.port = port
@@ -46,6 +56,8 @@ class ConnectionObject:
         self._as_requests_fn = as_requests_fn
         self._close_fn = close_fn
         self.browser = browser
+        self.browser_context = browser_context
+        self.cdp_url = cdp_url
 
     def get_url(self) -> str:
         """Get the current proxy URL."""
@@ -107,6 +119,8 @@ class AluviaClient:
         local_proxy: bool = True,
         strict: bool = True,
         start_playwright: bool = False,
+        playwright_options: Optional[Dict[str, Any]] = None,
+        block_detection: Optional[BlockDetectionConfig] = None,
     ) -> None:
         """
         Initialize AluviaClient.
@@ -125,6 +139,10 @@ class AluviaClient:
             strict: Strict mode for error handling
             start_playwright: Automatically start Playwright and return browser instance
                             (default: False). Browser available via connection.browser
+            playwright_options: Options to pass to playwright.chromium.launch()
+                              (e.g., {"headless": False, "slow_mo": 50})
+            block_detection: Configuration for block detection. If None and start_playwright=True,
+                           defaults to {"enabled": True}. Set to {"enabled": False} to disable.
         """
         api_key = str(api_key or "").strip()
         if not api_key:
@@ -147,7 +165,19 @@ class AluviaClient:
         self._started = False
         self._start_lock = asyncio.Lock()
         self._start_playwright = start_playwright
+        self._playwright_options = playwright_options or {}
         self._browser = None
+        self._browser_context = None
+        self._cdp_url = ""
+        self._block_detection: Optional[BlockDetection] = None
+        self._page_states: Dict[Any, Dict[str, Any]] = {}
+        self._detection_mutex = asyncio.Lock()
+        
+        # Initialize block detection if configured or if using Playwright
+        if block_detection is not None or start_playwright:
+            self.logger.debug("Initializing block detection")
+            detection_config = block_detection or BlockDetectionConfig(enabled=True)
+            self._block_detection = BlockDetection(detection_config, self.logger)
 
         # Create ConfigManager
         self.config_manager = ConfigManager(
@@ -204,10 +234,35 @@ class AluviaClient:
                         # Use the local proxy URL
                         info = await self.proxy_server.start(self.local_port)
                         proxy_settings = self._create_local_connection(info).as_playwright()
-                    browser = await playwright.chromium.launch(
-                        proxy={k: v for k, v in proxy_settings.items() if v}
-                    )
-                    self._browser = browser
+                    
+                    # Merge playwright options with proxy settings
+                    launch_options = {**self._playwright_options}
+                    launch_options["proxy"] = {k: v for k, v in proxy_settings.items() if v}
+                    
+                    # Find a free port for CDP and configure remote debugging
+                    cdp_url = ""
+                    for attempt in range(3):
+                        cdp_port = await self._find_free_port()
+                        try:
+                            # Ensure args list exists
+                            if "args" not in launch_options:
+                                launch_options["args"] = []
+                            
+                            # Add CDP port arg
+                            args = [arg for arg in launch_options["args"] if "--remote-debugging-port" not in str(arg)]
+                            args.append(f"--remote-debugging-port={cdp_port}")
+                            launch_options["args"] = args
+                            
+                            browser = await playwright.chromium.launch(**launch_options)
+                            cdp_url = f"http://127.0.0.1:{cdp_port}"
+                            self._browser = browser
+                            self._cdp_url = cdp_url
+                            break
+                        except Exception as err:
+                            if attempt == 2 or "EADDRINUSE" not in str(err):
+                                raise
+                            self.logger.debug(f"Port {cdp_port} taken, retrying browser launch")
+                    
                 except Exception as e:
                     raise ApiError(f"Failed to start Playwright: {e}")
 
@@ -224,10 +279,37 @@ class AluviaClient:
             # Attach browser if started
             if browser:
                 connection.browser = browser
+                # Set CDP URL if available
+                if hasattr(self, '_cdp_url'):
+                    connection.cdp_url = self._cdp_url
+                
+                # Attach block detection to browser context if enabled
+                if self._block_detection and self._block_detection.is_enabled():
+                    # Get or create browser context
+                    contexts = browser.contexts
+                    if contexts:
+                        browser_context = contexts[0]
+                    else:
+                        browser_context = await browser.new_context()
+                    
+                    connection.browser_context = browser_context
+                    self._attach_block_detection_listener(browser_context)
 
             self._connection = connection
             self._started = True
             return connection
+
+    async def _find_free_port(self) -> int:
+        """Find a free port for CDP remote debugging."""
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind(('127.0.0.1', 0))
+            sock.listen(1)
+            port = sock.getsockname()[1]
+            return port
+        finally:
+            sock.close()
 
     def _create_gateway_connection(self) -> ConnectionObject:
         """Create connection object for gateway mode."""
@@ -387,6 +469,235 @@ class AluviaClient:
 
         trimmed = target_geo.strip()
         await self.config_manager.set_config(target_geo=trimmed if trimmed else None)
+    
+    def _attach_page_listeners(self, page: Any) -> None:
+        """Attach block detection listeners to a page"""
+        if not self._block_detection:
+            return
+        
+        # Track page state
+        page_state = {
+            "last_response": None,
+            "last_analysis_ts": 0,
+            "skip_full_pass": False,
+            "fast_result": None,
+        }
+        self._page_states[page] = page_state
+        
+        # Capture navigation responses on main frame
+        def on_response(response: Any) -> None:
+            try:
+                if (response.request.is_navigation_request() and 
+                    response.request.frame == page.main_frame):
+                    page_state["last_response"] = response
+                    page_state["skip_full_pass"] = False
+                    page_state["fast_result"] = None
+            except Exception:
+                pass
+        
+        page.on("response", on_response)
+        
+        # Fast pass at domcontentloaded
+        async def on_domcontentloaded() -> None:
+            if not self._block_detection:
+                return
+            try:
+                result = await self._block_detection.analyze_fast(
+                    page, page_state["last_response"]
+                )
+                page_state["fast_result"] = result
+                page_state["last_analysis_ts"] = time.time()
+                
+                if result.score >= 0.9:
+                    page_state["skip_full_pass"] = True
+                    await self._handle_detection_result(result, page)
+            except Exception as error:
+                self.logger.warn(f"Error in fast-pass detection: {error}")
+        
+        page.on("domcontentloaded", lambda: asyncio.create_task(on_domcontentloaded()))
+        
+        # Full pass at load
+        async def on_load() -> None:
+            if not self._block_detection or page_state["skip_full_pass"]:
+                return
+            try:
+                # Wait for networkidle with timeout cap
+                try:
+                    await page.wait_for_load_state(
+                        "networkidle",
+                        timeout=self._block_detection.get_network_idle_timeout_ms()
+                    )
+                except Exception:
+                    # Timeout is ok, proceed anyway
+                    pass
+                
+                result = await self._block_detection.analyze_full(
+                    page,
+                    page_state["last_response"],
+                    page_state["fast_result"]
+                )
+                page_state["last_analysis_ts"] = time.time()
+                
+                await self._handle_detection_result(result, page)
+            except Exception as error:
+                self.logger.warn(f"Error in full-pass detection: {error}")
+        
+        page.on("load", lambda: asyncio.create_task(on_load()))
+        
+        # SPA detection via framenavigated
+        async def on_framenavigated(frame: Any) -> None:
+            if not self._block_detection:
+                return
+            try:
+                # Only handle main frame
+                if frame != page.main_frame:
+                    return
+                
+                # Debounce per-page
+                now = time.time()
+                if now - page_state["last_analysis_ts"] < 0.2:  # 200ms
+                    return
+                
+                # Wait 50ms and check if a new response arrived
+                response_before = page_state["last_response"]
+                await asyncio.sleep(0.05)
+                if page_state["last_response"] != response_before:
+                    return  # Not SPA
+                
+                result = await self._block_detection.analyze_spa(page)
+                page_state["last_analysis_ts"] = now
+                
+                await self._handle_detection_result(result, page)
+            except Exception as error:
+                self.logger.warn(f"Error in SPA detection: {error}")
+        
+        page.on("framenavigated", lambda frame: asyncio.create_task(on_framenavigated(frame)))
+    
+    def _attach_block_detection_listener(self, context: Any) -> None:
+        """Attach block detection listener to all existing and future pages in a context"""
+        if not self._block_detection:
+            return
+        
+        self.logger.debug("Attaching block detection listener to context")
+        
+        # Attach to existing pages
+        try:
+            existing_pages = context.pages
+            for page in existing_pages:
+                self._attach_page_listeners(page)
+                # Check if page has already loaded (not about:blank)
+                if page.url != "about:blank" and self._block_detection:
+                    async def analyze_existing() -> None:
+                        try:
+                            result = await self._block_detection.analyze_full(page, None)
+                            await self._handle_detection_result(result, page)
+                        except Exception as error:
+                            self.logger.warn(f"Error analyzing existing page: {error}")
+                    
+                    asyncio.create_task(analyze_existing())
+        except Exception:
+            pass
+        
+        # Attach to future pages
+        def on_page(page: Any) -> None:
+            self.logger.debug(f"New page detected: {page.url}")
+            self._attach_page_listeners(page)
+        
+        context.on("page", on_page)
+    
+    async def _handle_detection_result(
+        self, result: BlockDetectionResult, page: Any
+    ) -> None:
+        """Handle a block detection result"""
+        if not self._block_detection:
+            return
+        
+        # Fire user's onDetection callback for all tiers (including clear)
+        on_detection = self._block_detection.get_on_detection()
+        if on_detection:
+            try:
+                # Create a shallow clone
+                snapshot = BlockDetectionResult(
+                    url=result.url,
+                    hostname=result.hostname,
+                    block_status=result.block_status,
+                    score=result.score,
+                    signals=result.signals.copy(),
+                    pass_type=result.pass_type,
+                    persistent_block=result.persistent_block,
+                    redirect_chain=result.redirect_chain.copy(),
+                )
+                await on_detection(snapshot, page)
+            except Exception as error:
+                self.logger.warn(f"Error in onDetection callback: {error}")
+        
+        # If auto-reload is disabled, stop here (detection-only mode)
+        if not self._block_detection.is_auto_unblock():
+            return
+        
+        # Check if auto-reload should fire for this blockStatus
+        should_reload = (
+            result.block_status == "blocked" or
+            (result.block_status == "suspected" and 
+             self._block_detection.is_auto_unblock_on_suspected())
+        )
+        
+        if not should_reload:
+            return
+        
+        # Serialize the critical section
+        async with self._detection_mutex:
+            await self._handle_auto_unblock(result, page)
+    
+    async def _handle_auto_unblock(
+        self, result: BlockDetectionResult, page: Any
+    ) -> None:
+        """Auto-unblock critical section. Must only be called under _detection_mutex."""
+        if not self._block_detection:
+            return
+        
+        url = result.url
+        hostname = result.hostname
+        
+        # Check persistent block escalation
+        if hostname in self._block_detection.persistent_hostnames:
+            result.persistent_block = True
+            self.logger.warn(f"Persistent block on {hostname}, skipping reload")
+            return
+        
+        if url in self._block_detection.retried_urls:
+            # Second block for this URL - mark hostname as persistent
+            result.persistent_block = True
+            self._block_detection.persistent_hostnames.add(hostname)
+            self.logger.warn(
+                f"Persistent block detected for {hostname} after retry of {url}"
+            )
+            return
+        
+        # First block for this URL - cap set size to prevent unbounded growth
+        if len(self._block_detection.retried_urls) >= 10_000:
+            self._block_detection.retried_urls.clear()
+        self._block_detection.retried_urls.add(url)
+        
+        # Add hostname to proxy routing rules
+        try:
+            config = self.config_manager.get_config()
+            current_rules = config.rules if config else []
+            if hostname not in current_rules:
+                self.logger.info(
+                    f"Auto-adding {hostname} to routing rules due to detection "
+                    f"(blockStatus: {result.block_status})"
+                )
+                await self.update_rules([*current_rules, hostname])
+        except Exception as error:
+            self.logger.warn(f"Failed to auto-add rule for {hostname}: {error}")
+        
+        # Reload page
+        try:
+            self.logger.info(f"Reloading page after adding {hostname} to rules")
+            await page.reload()
+        except Exception as error:
+            self.logger.warn(f"Failed to reload page for {hostname}: {error}")
 
     async def __aenter__(self) -> "AluviaClient":
         """Async context manager entry."""

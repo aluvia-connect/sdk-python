@@ -41,6 +41,10 @@ dev = [
     "respx>=0.20.0",
 ]
 
+[project.scripts]
+aluvia = "aluvia_sdk.bin.cli:main"
+aluvia-sdk = "aluvia_sdk.bin.cli:main"
+
 [project.urls]
 Homepage = "https://aluvia.io"
 Documentation = "https://docs.aluvia.io"
