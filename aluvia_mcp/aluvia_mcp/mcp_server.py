@@ -261,8 +261,13 @@ async def main() -> None:
         pass
 
 
-if __name__ == "__main__":
+def run() -> None:
+    """Synchronous entry point for script execution."""
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    run()

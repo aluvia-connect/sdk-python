@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/aluvia-sdk/"><img src="https://img.shields.io/pypi/v/aluvia-sdk.svg" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/aluvia-sdk/"><img src="https://img.shields.io/pypi/pyversions/aluvia-sdk.svg" alt="Python versions"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/pypi/l/aluvia-sdk.svg" alt="license"></a>
+  <a href="https://pypi.org/project/aluvia-mcp/"><img src="https://img.shields.io/pypi/v/aluvia-mcp.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/aluvia-mcp/"><img src="https://img.shields.io/pypi/pyversions/aluvia-mcp.svg" alt="Python versions"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/pypi/l/aluvia-mcp.svg" alt="license"></a>
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-1.0-compatible?labelColor=2d2d2d&color=5f5f5f" alt="MCP compatible"></a>
 </p>
 
@@ -43,7 +43,7 @@ Get your API key at [dashboard.aluvia.io](https://dashboard.aluvia.io). The serv
 
 ## Requirements
 
-- **Python** 3.9+
+- **Python** 3.10+
 - **Aluvia API key** — sign up at [dashboard.aluvia.io](https://dashboard.aluvia.io)
 - **Playwright** (optional) — required for browser sessions: `pip install playwright && playwright install chromium`
 
@@ -88,8 +88,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 {
   "mcpServers": {
     "aluvia": {
-      "command": "python",
-      "args": ["-m", "aluvia_mcp.mcp_server"],
+      "command": "aluvia-mcp",
       "env": {
         "ALUVIA_API_KEY": "your-api-key"
       }
@@ -106,8 +105,7 @@ Add to your VS Code settings (`.vscode/settings.json` or User Settings):
 {
   "mcp.servers": {
     "aluvia": {
-      "command": "python",
-      "args": ["-m", "aluvia_mcp.mcp_server"],
+      "command": "aluvia-mcp",
       "env": {
         "ALUVIA_API_KEY": "your-api-key"
       }
@@ -124,8 +122,7 @@ Add to your Cursor MCP settings:
 {
   "mcpServers": {
     "aluvia": {
-      "command": "python",
-      "args": ["-m", "aluvia_mcp.mcp_server"],
+      "command": "aluvia-mcp",
       "env": {
         "ALUVIA_API_KEY": "your-api-key"
       }
@@ -143,7 +140,7 @@ import subprocess
 import json
 
 proc = subprocess.Popen(
-    ["python", "-m", "aluvia_mcp.mcp_server"],
+    ["aluvia-mcp"],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     env={"ALUVIA_API_KEY": "your-api-key"}

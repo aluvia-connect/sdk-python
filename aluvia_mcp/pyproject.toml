@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-aluvia-mcp = "aluvia_mcp.mcp_server:main"
+aluvia-mcp = "aluvia_mcp.mcp_server:run"
 
 [project.urls]
 Homepage = "https://aluvia.io"
