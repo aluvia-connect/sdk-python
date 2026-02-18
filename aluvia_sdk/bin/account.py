@@ -31,7 +31,7 @@ async def handle_account(args: List[str]) -> None:
                 i += 1
         
         api = require_api()
-        usage = await api.account.usage.get(start=start, end=end)
+        usage = await api.account.usage(start=start, end=end)
         output({"usage": usage})
     
     output({"error": f"Unknown account subcommand: '{subcommand}'."}, 1)
