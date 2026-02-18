@@ -120,6 +120,10 @@ async def connect(session_name: Optional[str] = None) -> ConnectResult:
             await browser.close()
         except Exception:
             pass
+        try:
+            await playwright.stop()
+        except Exception:
+            pass
         raise ConnectError(f"Connected but failed to get page: {err}")
 
     return ConnectResult(
