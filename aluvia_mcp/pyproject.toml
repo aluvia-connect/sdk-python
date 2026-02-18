@@ -43,9 +43,9 @@ Documentation = "https://docs.aluvia.io"
 Repository = "https://github.com/aluvia-connect/sdk-python"
 Issues = "https://github.com/aluvia-connect/sdk-python/issues"
 
-[tool.setuptools]
-packages = ["aluvia_mcp"]
-package-dir = {"aluvia_mcp" = "."}
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aluvia_mcp*"]
 
 [tool.setuptools.package-data]
 aluvia_mcp = ["py.typed"]
