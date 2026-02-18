@@ -58,7 +58,7 @@ def test_import():
     
     print("\n✓ All import tests passed!")
     print("\nNote: To run the MCP server, you need to install the MCP library:")
-    print("  pip install 'aluvia-sdk[mcp]'")
+    print("  pip install aluvia-mcp")
     print("\nThen run:")
     print("  export ALUVIA_API_KEY='your-api-key'")
     print("  aluvia-mcp")
