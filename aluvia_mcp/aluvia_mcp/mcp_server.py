@@ -7,11 +7,17 @@ for AI agents. Runs on stdio transport (stdin/stdout JSON-RPC).
 
 Accepts tool calls without strict initialization to match Node.js SDK behavior.
 """
+import re
 import sys
 import json
 import asyncio
 from typing import Any, Dict
 from . import mcp_tools
+
+
+def _camel_to_snake(name: str) -> str:
+    """Convert a camelCase string to snake_case."""
+    return re.sub(r"([A-Z])", r"_\1", name).lower().lstrip("_")
 
 
 # Map tool names to their handler functions
@@ -37,14 +43,30 @@ TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "URL to open in the browser"},
-                "connectionId": {"type": "integer", "description": "Use a specific Aluvia connection ID", "minimum": 1},
-                "headful": {"type": "boolean", "description": "Run browser in headful mode (default: headless)"},
-                "browserSession": {"type": "string", "description": "Custom session name (auto-generated if omitted)"},
-                "autoUnblock": {"type": "boolean", "description": "Auto-detect blocks and reload through Aluvia proxy"},
-                "disableBlockDetection": {"type": "boolean", "description": "Disable block detection entirely"}
+                "connectionId": {
+                    "type": "integer",
+                    "description": "Use a specific Aluvia connection ID",
+                    "minimum": 1,
+                },
+                "headful": {
+                    "type": "boolean",
+                    "description": "Run browser in headful mode (default: headless)",
+                },
+                "browserSession": {
+                    "type": "string",
+                    "description": "Custom session name (auto-generated if omitted)",
+                },
+                "autoUnblock": {
+                    "type": "boolean",
+                    "description": "Auto-detect blocks and reload through Aluvia proxy",
+                },
+                "disableBlockDetection": {
+                    "type": "boolean",
+                    "description": "Disable block detection entirely",
+                },
             },
-            "required": ["url"]
-        }
+            "required": ["url"],
+        },
     },
     {
         "name": "session_close",
@@ -52,15 +74,18 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "browserSession": {"type": "string", "description": "Name of session to close (auto-selects if only one)"},
-                "all": {"type": "boolean", "description": "Close all sessions"}
-            }
-        }
+                "browserSession": {
+                    "type": "string",
+                    "description": "Name of session to close (auto-selects if only one)",
+                },
+                "closeAll": {"type": "boolean", "description": "Close all sessions"},
+            },
+        },
     },
     {
         "name": "session_list",
         "description": "List all active browser sessions with their PIDs, URLs, and proxy configuration.",
-        "inputSchema": {"type": "object", "properties": {}}
+        "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "session_get",
@@ -68,9 +93,12 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "browserSession": {"type": "string", "description": "Name of session (auto-selects if only one)"}
-            }
-        }
+                "browserSession": {
+                    "type": "string",
+                    "description": "Name of session (auto-selects if only one)",
+                }
+            },
+        },
     },
     {
         "name": "session_rotate_ip",
@@ -78,9 +106,12 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "browserSession": {"type": "string", "description": "Name of session (auto-selects if only one)"}
-            }
-        }
+                "browserSession": {
+                    "type": "string",
+                    "description": "Name of session (auto-selects if only one)",
+                }
+            },
+        },
     },
     {
         "name": "session_set_geo",
@@ -89,10 +120,16 @@ TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {
                 "geo": {"type": "string", "description": 'Geo code to set (e.g. "US", "GB")'},
-                "clear": {"type": "boolean", "description": "Clear the target geo instead of setting one"},
-                "browserSession": {"type": "string", "description": "Name of session (auto-selects if only one)"}
-            }
-        }
+                "clear": {
+                    "type": "boolean",
+                    "description": "Clear the target geo instead of setting one",
+                },
+                "browserSession": {
+                    "type": "string",
+                    "description": "Name of session (auto-selects if only one)",
+                },
+            },
+        },
     },
     {
         "name": "session_set_rules",
@@ -100,16 +137,25 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "rules": {"type": "string", "description": 'Comma-separated rules to append (e.g. "a.com,b.com")'},
-                "remove": {"type": "string", "description": "Comma-separated rules to remove instead of appending"},
-                "browserSession": {"type": "string", "description": "Name of session (auto-selects if only one)"}
-            }
-        }
+                "rules": {
+                    "type": "string",
+                    "description": 'Comma-separated rules to append (e.g. "a.com,b.com")',
+                },
+                "remove": {
+                    "type": "string",
+                    "description": "Comma-separated rules to remove instead of appending",
+                },
+                "browserSession": {
+                    "type": "string",
+                    "description": "Name of session (auto-selects if only one)",
+                },
+            },
+        },
     },
     {
         "name": "account_get",
         "description": "Get Aluvia account information including plan details and current balance.",
-        "inputSchema": {"type": "object", "properties": {}}
+        "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "account_usage",
@@ -117,16 +163,19 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "start": {"type": "string", "description": 'Start date filter (ISO8601 format, e.g. "2024-01-01T00:00:00Z")'},
-                "end": {"type": "string", "description": "End date filter (ISO8601 format)"}
-            }
-        }
+                "start": {
+                    "type": "string",
+                    "description": 'Start date filter (ISO8601 format, e.g. "2024-01-01T00:00:00Z")',
+                },
+                "end": {"type": "string", "description": "End date filter (ISO8601 format)"},
+            },
+        },
     },
     {
         "name": "geos_list",
         "description": "List all available geographic regions for proxy targeting.",
-        "inputSchema": {"type": "object", "properties": {}}
-    }
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
 
 
@@ -135,7 +184,7 @@ async def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
     method = request.get("method")
     req_id = request.get("id")
     params = request.get("params", {})
-    
+
     # Handle initialize
     if method == "initialize":
         return {
@@ -143,102 +192,82 @@ async def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
             "id": req_id,
             "result": {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {
-                    "experimental": {},
-                    "tools": {"listChanged": False}
-                },
-                "serverInfo": {"name": "aluvia", "version": "1.0.0"}
-            }
+                "capabilities": {"experimental": {}, "tools": {"listChanged": False}},
+                "serverInfo": {"name": "aluvia", "version": "1.0.0"},
+            },
         }
-    
+
     # Handle notifications/initialized (no response needed)
     if method == "notifications/initialized":
         return None
-    
+
     # Handle tools/list
     if method == "tools/list":
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": {"tools": TOOL_DEFINITIONS}
-        }
-    
+        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": TOOL_DEFINITIONS}}
+
     # Handle tools/call
     if method == "tools/call":
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
-        
+
         if tool_name not in TOOLS:
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
-                "error": {
-                    "code": -32601,
-                    "message": f"Unknown tool: {tool_name}"
-                }
+                "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"},
             }
-        
+
         try:
-            # Call the tool
+            # Convert camelCase argument names to snake_case to match Python signatures
+            snake_args = {_camel_to_snake(k): v for k, v in arguments.items()}
             tool_func = TOOLS[tool_name]
-            result = await tool_func(**arguments)
-            
+            result = await tool_func(**snake_args)
+
             # Format response to match Node.js output
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(result.get("data"), indent=2)
-                        }
-                    ],
-                    "isError": result.get("isError", False)
-                }
+                    "content": [{"type": "text", "text": json.dumps(result.get("data"), indent=2)}],
+                    "isError": result.get("isError", False),
+                },
             }
         except Exception as e:
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
-                "error": {
-                    "code": -32603,
-                    "message": f"Tool execution error: {str(e)}"
-                }
+                "error": {"code": -32603, "message": f"Tool execution error: {str(e)}"},
             }
-    
+
     # Unknown method
     return {
         "jsonrpc": "2.0",
         "id": req_id,
-        "error": {
-            "code": -32601,
-            "message": f"Method not found: {method}"
-        }
+        "error": {"code": -32601, "message": f"Method not found: {method}"},
     }
 
 
 async def main() -> None:
     """Main entry point for the MCP server."""
     print("Aluvia MCP server running on stdio", file=sys.stderr)
-    
+
     # Read from stdin line by line
     loop = asyncio.get_event_loop()
-    
+
     async def read_stdin():
         while True:
             line = await loop.run_in_executor(None, sys.stdin.readline)
             if not line:
                 break
-            
+
             line = line.strip()
             if not line:
                 continue
-            
+
             try:
                 request = json.loads(line)
                 response = await handle_request(request)
-                
+
                 # Send response if not None (some methods don't require response)
                 if response is not None:
                     print(json.dumps(response), flush=True)
@@ -246,15 +275,12 @@ async def main() -> None:
                 error_response = {
                     "jsonrpc": "2.0",
                     "id": None,
-                    "error": {
-                        "code": -32700,
-                        "message": "Parse error: Invalid JSON"
-                    }
+                    "error": {"code": -32700, "message": "Parse error: Invalid JSON"},
                 }
                 print(json.dumps(error_response), flush=True)
             except Exception as e:
                 print(f"Error: {e}", file=sys.stderr)
-    
+
     try:
         await read_stdin()
     except KeyboardInterrupt:
