@@ -42,13 +42,13 @@ async def session_start(
 
 async def session_close(
     browser_session: Optional[str] = None,
-    all: Optional[bool] = None,
+    close_all: Optional[bool] = None,
 ) -> ToolResult:
     """Close a browser session."""
     cli_args = ["close"]
     if browser_session:
         cli_args.extend(["--browser-session", browser_session])
-    if all:
+    if close_all:
         cli_args.append("--all")
     return await capture_output(lambda: handle_session(cli_args))
 
