@@ -388,12 +388,12 @@ class BlockDetection:
                 if not redirected_from:
                     break
                 
-                redirect_response = getattr(redirected_from, 'response', None)
-                if redirect_response:
-                    hops.append(RedirectHop(
-                        url=redirected_from.url,
-                        status_code=redirect_response.status
-                    ))
+                # In Playwright Python, Request.response() is async; avoid
+                # calling it here and just record the redirect URL.
+                hops.append(RedirectHop(
+                    url=redirected_from.url,
+                    status_code=0,
+                ))
                 
                 req = redirected_from
             
