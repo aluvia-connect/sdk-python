@@ -107,6 +107,10 @@ async def connect(session_name: Optional[str] = None) -> ConnectResult:
     try:
         browser = await playwright.chromium.connect_over_cdp(cdp_url)
     except Exception as err:
+        try:
+            await playwright.stop()
+        except Exception:
+            pass
         raise ConnectError(f"Failed to connect to session '{resolved_name}' at {cdp_url}: {err}")
 
     # 5. Get context and page
