@@ -10,10 +10,25 @@ AI agents require reliable web access, yet they often encounter 403 blocks, CAPT
 
 **Aluvia solves this problem** by connecting agents to the web through premium mobile IPs on US carrier networks. Unlike datacenter IPs, these reputable IPs are used by real humans, and they don't get blocked by websites.
 
-**This Python SDK** makes it simple to integrate Aluvia into your agent workflow. There are two key components:
+**This Python SDK** makes it simple to integrate Aluvia into your agent workflow. There are three key components:
 
-1. `AluviaClient` - a local client for connecting to Aluvia.
-2. `AluviaApi` - a lightweight Python wrapper for the Aluvia REST API.
+1. **`AluviaClient`** - a local client for connecting to Aluvia
+2. **`AluviaApi`** - a lightweight Python wrapper for the Aluvia REST API
+3. **MCP Server** - Model Context Protocol server for AI agent frameworks (see [aluvia_mcp/README.md](aluvia_mcp/README.md))
+
+---
+
+## MCP Server (Model Context Protocol)
+
+For AI agent frameworks that support MCP (Claude Desktop, Claude Code, Cursor, etc.), use the Aluvia MCP server:
+
+```bash
+pip install "aluvia-sdk[mcp]"
+export ALUVIA_API_KEY="your-api-key"
+aluvia-mcp
+```
+
+The MCP server exposes all Aluvia CLI functionality as structured tools. See [aluvia_mcp/README.md](aluvia_mcp/README.md) for configuration and usage.
 
 ---
 

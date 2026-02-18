@@ -5,10 +5,11 @@ Aluvia CLI - Command-line interface for Aluvia SDK
 import sys
 import json
 import asyncio
-from typing import Any, Dict, NoReturn, List
+from contextvars import ContextVar
+from typing import Any, Dict, NoReturn, List, Callable, Awaitable, TypedDict
 
-# MCP output capture flag (for MCP server integration)
-_mcp_capture_mode = False
+# MCP output capture context (for MCP server integration)
+_mcp_capture_context: ContextVar[bool] = ContextVar('mcp_capture', default=False)
 
 
 class MCPOutputCapture(Exception):
@@ -19,9 +20,41 @@ class MCPOutputCapture(Exception):
         super().__init__()
 
 
+class ToolResult(TypedDict):
+    """Result from a tool execution."""
+    data: Dict[str, Any]
+    isError: bool
+
+
 def is_capturing() -> bool:
     """Check if CLI is running in MCP capture mode."""
-    return _mcp_capture_mode
+    return _mcp_capture_context.get()
+
+
+async def capture_output(fn: Callable[[], Awaitable[None]]) -> ToolResult:
+    """
+    Run a CLI handler function in capture mode.
+    Returns the data that output() would have written to stdout.
+    Safe for concurrent use — each call gets its own context.
+    """
+    token = _mcp_capture_context.set(True)
+    try:
+        await fn()
+        # Handler completed without calling output() — shouldn't happen for CLI handlers
+        return {"data": {"error": "Handler did not produce output"}, "isError": True}
+    except MCPOutputCapture as err:
+        return {
+            "data": err.data,
+            "isError": err.exit_code != 0,
+        }
+    except Exception as err:
+        # Unexpected error (not from output())
+        return {
+            "data": {"error": f"Unexpected error: {str(err)}"},
+            "isError": True,
+        }
+    finally:
+        _mcp_capture_context.reset(token)
 
 
 def output(data: Dict[str, Any], exit_code: int = 0) -> NoReturn:

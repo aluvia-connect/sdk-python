@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MCP Server (Model Context Protocol)** - New `aluvia_mcp` package providing MCP server for AI agent frameworks
+  - `aluvia-mcp` command-line binary for running the MCP server
+  - 10 MCP tools: `session_start`, `session_close`, `session_list`, `session_get`, `session_rotate_ip`, `session_set_geo`, `session_set_rules`, `account_get`, `account_usage`, `geos_list`
+  - Stdio transport support for MCP clients (Claude Desktop, Claude Code, Cursor, VS Code)
+  - Complete documentation in `aluvia_mcp/README.md`
+  - `capture_output()` helper in CLI for MCP tool integration using ContextVar for thread-safe concurrent tool calls
+
 ## [1.1.0] - 2026-02-04
 
 ### Added
