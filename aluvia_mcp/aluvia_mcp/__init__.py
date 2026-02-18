@@ -8,6 +8,6 @@ as structured tools for AI agents.
 __version__ = "1.0.0"
 
 from . import mcp_tools
-from .mcp_server import create_server, main
+from .mcp_server import main
 
-__all__ = ["mcp_tools", "create_server", "main"]
+__all__ = ["mcp_tools", "main"]

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-18
+
 ### Added
 
 - **MCP Server (Model Context Protocol)** - New `aluvia_mcp` package providing MCP server for AI agent frameworks
@@ -15,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Stdio transport support for MCP clients (Claude Desktop, Claude Code, Cursor, VS Code)
   - Complete documentation in `aluvia_mcp/README.md`
   - `capture_output()` helper in CLI for MCP tool integration using ContextVar for thread-safe concurrent tool calls
+- **CLI Handler Exports** - Added clean import path `aluvia_sdk.bin` for CLI handlers (aligns with Node.js SDK structure)
+  - Exports: `handle_session`, `handle_account`, `handle_geos`, `handle_open`, `OpenOptions`, `capture_output`, `ToolResult`
+  - Enables cleaner imports for MCP tools and other integrations
 
 ## [1.1.0] - 2026-02-04
 

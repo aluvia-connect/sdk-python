@@ -32,9 +32,9 @@
 ## Quick Start
 
 ```bash
-pip install aluvia-sdk mcp
+pip install aluvia-mcp
 export ALUVIA_API_KEY="your-api-key"
-python -m aluvia_mcp.mcp_server
+aluvia-mcp
 ```
 
 Get your API key at [dashboard.aluvia.io](https://dashboard.aluvia.io). The server runs on **stdio** (stdin/stdout JSON-RPC) — MCP clients spawn it and communicate over stdio.
@@ -52,13 +52,21 @@ Get your API key at [dashboard.aluvia.io](https://dashboard.aluvia.io). The serv
 ## Installation
 
 ```bash
-pip install aluvia-sdk mcp
+pip install aluvia-mcp
 ```
 
-Or install with all optional dependencies:
+Or from source:
 
 ```bash
-pip install "aluvia-sdk[playwright]" mcp
+git clone https://github.com/aluvia-connect/sdk-python.git
+cd sdk-python/aluvia_mcp
+pip install -e .
+```
+
+For browser session tools, install Playwright:
+
+```bash
+pip install playwright
 playwright install chromium
 ```
 
