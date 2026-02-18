@@ -13,6 +13,15 @@ from typing import Optional, Dict, Any, List, TypedDict
 
 LOCK_DIR = Path(tempfile.gettempdir()) / "aluvia-sdk"
 
+
+class LockSignal(TypedDict, total=False):
+    """A single detection signal stored in the lock file."""
+
+    name: str
+    weight: float
+    details: str
+
+
 ADJECTIVES = [
     "swift",
     "bold",
@@ -60,15 +69,18 @@ NOUNS = [
 ]
 
 
-class LockDetection(TypedDict, total=False):
+# Base TypedDict using functional form for the reserved keyword 'pass'.
+_LockDetectionBase = TypedDict("_LockDetectionBase", {"pass": str}, total=False)
+
+
+class LockDetection(_LockDetectionBase, total=False):
     """Lock detection data structure."""
 
     hostname: str
     lastUrl: str
     blockStatus: str
     score: float
-    signals: List[str]
-    pass_: str  # 'pass' is a reserved keyword, use 'pass_'
+    signals: List[LockSignal]
     persistentBlock: bool
     timestamp: int
 
