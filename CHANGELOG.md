@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exports: `handle_session`, `handle_account`, `handle_geos`, `handle_open`, `OpenOptions`, `capture_output`, `ToolResult`
   - Enables cleaner imports for MCP tools and other integrations
 
+### Changed
+
+- **BREAKING**: Dropped Python 3.9 support - Minimum Python version is now 3.10
+  - Python 3.9 reached end-of-life in October 2025
+  - Required by the `mcp>=0.9.0` dependency in `aluvia-mcp` package
+
 ## [1.1.0] - 2026-02-04
 
 ### Added
