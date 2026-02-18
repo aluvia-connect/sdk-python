@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "aluvia-sdk>=1.1.0",
+    "aluvia-sdk>=1.2.0",
     "mcp>=0.9.0",
 ]
 
