@@ -32,3 +32,10 @@ class ProxyStartError(Exception):
 
     def __init__(self, message: str = "Failed to start local proxy server") -> None:
         super().__init__(message)
+
+
+class ConnectError(Exception):
+    """Raised when connecting to a browser session via CDP fails."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

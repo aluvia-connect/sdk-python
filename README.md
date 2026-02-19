@@ -4,16 +4,84 @@
 [![Python](https://img.shields.io/pypi/pyversions/aluvia-sdk.svg)](https://pypi.org/project/aluvia-sdk/)
 [![License](https://img.shields.io/pypi/l/aluvia-sdk.svg)](./LICENSE)
 
-## Introduction
+**Stop getting blocked.** Aluvia routes your AI agent's web traffic through premium US mobile carrier IPs — the same IPs used by real people on their phones. Websites trust them, so your agent stops hitting 403s, CAPTCHAs, and rate limits.
 
-AI agents require reliable web access, yet they often encounter 403 blocks, CAPTCHAs, and rate limits. Real humans don't live in datacenters, so websites often treat agent coming from datacenter/cloud IPs as suspicious.
+This SDK gives you everything you need:
 
-**Aluvia solves this problem** by connecting agents to the web through premium mobile IPs on US carrier networks. Unlike datacenter IPs, these reputable IPs are used by real humans, and they don't get blocked by websites.
+- **CLI for browser automation** — launch headless Chromium sessions from the command line, with JSON output designed for AI agent frameworks
+- **Automatic block detection and unblocking** — the SDK detects 403s, WAF challenges, and CAPTCHAs, then reroutes through Aluvia and reloads the page automatically
+- **Smart routing** — proxy only the sites that block you; everything else goes direct to save cost and latency
+- **Runtime rule updates** — add hostnames to proxy rules on the fly, no restarts or redeployments
+- **Adapters for popular tools** — Playwright, Selenium, httpx, requests, and aiohttp
+- **IP rotation and geo targeting** — rotate IPs or target specific US regions at runtime
+- **REST API wrapper** — manage connections, check usage, and build custom tooling with `AluviaApi`
+- **MCP server** — for Model Context Protocol (MCP) only, use the separate package: `pip install aluvia-mcp` and run `aluvia-mcp`. See [aluvia_mcp/README.md](aluvia_mcp/README.md) for details.
 
-**This Python SDK** makes it simple to integrate Aluvia into your agent workflow. There are two key components:
+---
 
-1. `AluviaClient` - a local client for connecting to Aluvia.
-2. `AluviaApi` - a lightweight Python wrapper for the Aluvia REST API.
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [MCP Server (Model Context Protocol)](#mcp-server-model-context-protocol)
+- [Aluvia Client](#aluvia-client)
+- [Architecture](#architecture)
+- [Operating Modes](#operating-modes)
+- [Using Aluvia Client](#using-aluvia-client)
+- [Routing Rules](#routing-rules)
+- [Dynamic Unblocking](#dynamic-unblocking)
+- [Tool Integration Adapters](#tool-integration-adapters)
+- [Aluvia API](#aluvia-api)
+- [License](#license)
+
+---
+
+## Quick Start
+
+### 1. Get Aluvia API key
+
+[Aluvia dashboard](https://dashboard.aluvia.io)
+
+### 2. Install
+
+```bash
+pip install aluvia-sdk playwright
+export ALUVIA_API_KEY="your-api-key"
+```
+
+### 3. Run
+
+Aluvia automatically detects website blocks and uses mobile IPs when necessary.
+
+```python
+from aluvia_sdk import AluviaClient
+import asyncio
+
+async def main():
+    client = AluviaClient(api_key="your-api-key", start_playwright=True)
+    connection = await client.start()
+    
+    page = await connection.browser.new_page()
+    await page.goto("https://example.com")
+    print(await page.title())
+    
+    await connection.close()
+
+asyncio.run(main())
+```
+
+---
+
+## MCP Server (Model Context Protocol)
+
+For AI agent frameworks that support MCP (Claude Desktop, Claude Code, Cursor, etc.), use the Aluvia MCP server:
+
+```bash
+pip install aluvia-mcp
+export ALUVIA_API_KEY="your-api-key"
+aluvia-mcp
+```
+
+The MCP server exposes all Aluvia CLI functionality as structured tools. See [aluvia_mcp/README.md](aluvia_mcp/README.md) for configuration and usage.
 
 ---
 

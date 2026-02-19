@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.2.0] - 2026-02-18
+
+### Added
+
+- **MCP Server (Model Context Protocol)** - New `aluvia_mcp` package providing MCP server for AI agent frameworks
+  - `aluvia-mcp` command-line binary for running the MCP server
+  - 10 MCP tools: `session_start`, `session_close`, `session_list`, `session_get`, `session_rotate_ip`, `session_set_geo`, `session_set_rules`, `account_get`, `account_usage`, `geos_list`
+  - Stdio transport support for MCP clients (Claude Desktop, Claude Code, Cursor, VS Code)
+  - Complete documentation in `aluvia_mcp/README.md`
+  - `capture_output()` helper in CLI for MCP tool integration using ContextVar for thread-safe concurrent tool calls
+- **Core CLI (`aluvia` / `aluvia-sdk`)** - New command-line interfaces for managing Aluvia sessions and accounts
+  - Supports creating, listing, rotating, and closing sessions from the terminal
+  - Provides commands for inspecting account status, usage, and available geos
+  - Designed for both direct human use and scripting/automation
+- **Block Detection & Auto-Unblock** - Built-in detection of blocked sessions with automatic unblock / rotation
+  - Detects common block signals from target sites and rotates IPs / sessions when needed
+  - Configurable retry behavior to improve reliability for long-running scraping / automation jobs
+- **Session Lock-File Management** - Lock files to coordinate access to shared sessions
+  - Prevents concurrent processes from corrupting or competing over the same session
+  - Ensures safe cleanup when sessions are closed or rotated
+- **`connect()` Helper for Existing Sessions** - New `connect()` function for attaching to running sessions
+  - Allows tools and scripts to reuse an already-running session instead of creating a new one
+  - Improves performance and reduces resource usage for multi-step workflows
+- **Browser Session Daemon Mode** - Long-lived browser session process for persistent automation
+  - Runs a background daemon that maintains a browser session across multiple CLI or SDK invocations
+  - Enables advanced use cases like warm sessions, shared cookies, and cross-command state
+- **CLI Handler Exports** - Added clean import path `aluvia_sdk.bin` for CLI handlers (aligns with Node.js SDK structure)
+  - Exports: `handle_session`, `handle_account`, `handle_geos`, `handle_open`, `OpenOptions`, `capture_output`, `ToolResult`
+  - Enables cleaner imports for MCP tools and other integrations
+
+### Changed
+
+- **BREAKING**: Dropped Python 3.9 support - Minimum Python version is now 3.10
+  - Python 3.9 reached end-of-life in October 2025
+  - Required by the `mcp>=0.9.0` dependency in `aluvia-mcp` package
+
 ## [1.1.0] - 2026-02-04
 
 ### Added

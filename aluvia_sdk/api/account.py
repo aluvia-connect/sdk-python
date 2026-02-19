@@ -184,9 +184,14 @@ class AccountApi:
         result = await _request_and_unwrap(self.ctx, "GET", "/account")
         return result["data"] or {}
 
-    async def usage(self) -> AccountUsage:
-        """Get account usage."""
-        result = await _request_and_unwrap(self.ctx, "GET", "/account/usage")
+    async def usage(self, start: Optional[str] = None, end: Optional[str] = None) -> AccountUsage:
+        """Get account usage with optional date filters."""
+        query = {}
+        if start:
+            query["start"] = start
+        if end:
+            query["end"] = end
+        result = await _request_and_unwrap(self.ctx, "GET", "/account/usage", query=query)
         return result["data"] or {}
 
     async def payments(self) -> List[AccountPayment]:
