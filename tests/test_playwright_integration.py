@@ -21,12 +21,12 @@ class TestPlaywrightIntegration:
     def test_start_playwright_defaults_to_false(self) -> None:
         """Test that start_playwright defaults to False."""
         client = AluviaClient(api_key="test-api-key", log_level="silent")
-        assert client._start_playwright is False
+        assert not client._start_playwright
 
     def test_start_playwright_can_be_set_to_true(self) -> None:
         """Test that start_playwright can be set to True."""
         client = AluviaClient(api_key="test-api-key", start_playwright=True, log_level="silent")
-        assert client._start_playwright is True
+        assert client._start_playwright
 
     @pytest.mark.asyncio
     async def test_browser_is_none_when_start_playwright_false(self) -> None:

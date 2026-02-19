@@ -30,8 +30,8 @@ class TestAluviaClient:
         assert client.poll_interval_ms == 5000
         assert client.gateway_protocol == "http"
         assert client.gateway_port == 8080
-        assert client.local_proxy is True
-        assert client.strict is True
+        assert client.local_proxy
+        assert client.strict
 
     def test_https_gateway_default_port(self) -> None:
         """Test that HTTPS gateway defaults to port 8443."""
@@ -50,7 +50,7 @@ class TestAluviaClient:
         assert client.api_base_url == "https://custom.api"
         assert client.poll_interval_ms == 10000
         assert client.gateway_port == 9090
-        assert client.local_proxy is False
+        assert not client.local_proxy
 
     def test_has_api_wrapper(self) -> None:
         """Test that client has API wrapper."""
